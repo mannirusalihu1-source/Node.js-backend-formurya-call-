@@ -9,41 +9,55 @@ const wss = new WebSocket.Server({ server });
 app.use(express.json());
 
 app.get('/', (req, res) => {
-  res.send('Murya Call Backend is running successfully!');
+  res.send('Murya Call Backend & Billing System is running!');
 });
 
-// Ajiye masu amfani da suka shiga da lambobin su na musamman
 let clients = {};
 
-wss.on('connection', (ws) => {
-  console.log('Sabon mai amfani ya haɗu da Murya Call server.');
+// Lambobin PIN na Gwaji da adadin kuɗinsu
+let validPins = {
+  "1111222233": 100,   // PIN na ₦100 (Minti 5)
+  "4444555566": 200,   // PIN na ₦200 (Minti 10)
+  "7777888899": 500,   // PIN na ₦500 (Minti 25)
+  "1010202030": 1000   // PIN na ₦1,000 (Minti 50)
+};
 
+wss.on('connection', (ws) => {
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message);
 
-      // Idan mai amfani ya yi register da lambarsa ta musamman
+      // 1. Rajistar Mai Amfani
       if (data.type === 'register') {
         clients[data.customNumber] = ws;
         ws.customNumber = data.customNumber;
-        console.log(`An yi rajistar mai amfani da lamba: ${data.customNumber}`);
       }
 
-      // Idan ana son tura kira, offer, answer, ko ice-candidate zuwa ga wani
+      // 2. Tabbatar da Lambar PIN (Voucher Top-Up)
+      if (data.type === 'redeem-pin') {
+        const pin = data.pin.trim();
+        if (validPins[pin]) {
+          const amount = validPins[pin];
+          delete validPins[pin]; // Cire PIN ɗin don kada a sake amfani da shi
+          ws.send(JSON.stringify({ type: 'pin-success', amount: amount }));
+        } else {
+          ws.send(JSON.stringify({ type: 'pin-error', message: 'Lambar PIN ba daidai ba ce ko an yi amfani da ita!' }));
+        }
+      }
+
+      // 3. Tura saƙonnin Kira (WebRTC Signaling)
       if (data.target && clients[data.target]) {
         clients[data.target].send(JSON.stringify(data));
       }
     } catch (e) {
-      console.log('Kuskure wajen karanta sako:', e);
+      console.log('Kuskure:', e);
     }
   });
 
   ws.on('close', () => {
     if (ws.customNumber && clients[ws.customNumber]) {
       delete clients[ws.customNumber];
-      console.log(`An cire mai amfani: ${ws.customNumber}`);
     }
-    console.log('An katse hadin mai amfani.');
   });
 });
 
