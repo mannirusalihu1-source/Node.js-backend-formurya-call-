@@ -1,6 +1,7 @@
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
+const twilio = require('twilio');
 
 const app = express();
 const server = http.createServer(app);
@@ -12,56 +13,95 @@ app.get('/', (req, res) => {
   res.send('Murya Call Backend & Billing System is running!');
 });
 
+// Twilio Setup (Sanya Account SID, Auth Token da Lambarka ta Twilio)
+const twilioClient = twilio('AC_YOUR_TWILIO_ACCOUNT_SID', 'YOUR_AUTH_TOKEN');
+const twilioPhoneNumber = '+1234567890';
+
 let clients = {};
+global.otpStorage = {};
 
 // Lambobin PIN na Gwaji da adadin kuɗinsu
 let validPins = {
-  "1111222233": 100,   // PIN na ₦100 (Minti 5)
-  "4444555566": 200,   // PIN na ₦200 (Minti 10)
-  "7777888899": 500,   // PIN na ₦500 (Minti 25)
-  "1010202030": 1000   // PIN na ₦1,000 (Minti 50)
+  "1111222233": 100,  // PIN na ₦100 (Minti 5)
+  "4444555566": 200,  // PIN na ₦200 (Minti 10)
+  "7777888899": 500,  // PIN na ₦500 (Minti 25)
+  "1010202030": 1000  // PIN na ₦1,000 (Minti 50)
 };
 
 wss.on('connection', (ws) => {
-  ws.on('message', (message) => {
+  let userNumber = null;
+
+  ws.on('message', async (message) => {
     try {
       const data = JSON.parse(message);
 
-      // 1. Rajistar Mai Amfani
-      if (data.type === 'register') {
-        clients[data.customNumber] = ws;
-        ws.customNumber = data.customNumber;
-      }
+      // Tura OTP zuwa SIM ta Twilio
+      if (data.type === 'send-otp') {
+        const otpCode = Math.floor(1000 + Math.random() * 9000).toString();
+        global.otpStorage[data.phone] = otpCode;
 
-      // 2. Tabbatar da Lambar PIN (Voucher Top-Up)
-      if (data.type === 'redeem-pin') {
-        const pin = data.pin.trim();
-        if (validPins[pin]) {
-          const amount = validPins[pin];
-          delete validPins[pin]; // Cire PIN ɗin don kada a sake amfani da shi
-          ws.send(JSON.stringify({ type: 'pin-success', amount: amount }));
-        } else {
-          ws.send(JSON.stringify({ type: 'pin-error', message: 'Lambar PIN ba daidai ba ce ko an yi amfani da ita!' }));
+        try {
+          await twilioClient.messages.create({
+            body: `Lambar tabbatarwarku ta Murya Call ita ce: ${otpCode}`,
+            from: twilioPhoneNumber,
+            to: data.phone
+          });
+          ws.send(JSON.stringify({ type: 'otp-sent', message: 'An tura lambar OTP zuwa lambarka ta SIM!' }));
+        } catch (err) {
+          console.error(err);
+          ws.send(JSON.stringify({ type: 'otp-error', message: 'Kuskure wajen tura sakon OTP ta Twilio.' }));
         }
       }
 
-      // 3. Tura saƙonnin Kira (WebRTC Signaling)
-      if (data.target && clients[data.target]) {
-        clients[data.target].send(JSON.stringify(data));
+      // Tabbatar da OTP da mai amfani ya saka
+      if (data.type === 'verify-otp') {
+        if (global.otpStorage[data.phone] && global.otpStorage[data.phone] === data.otp) {
+          ws.send(JSON.stringify({ type: 'otp-verified' }));
+        } else {
+          ws.send(JSON.stringify({ type: 'otp-error', message: 'Lambar OTP ba daidai ba ce!' }));
+        }
       }
+
+      // Rijistar Mai Amfani a WebSocket
+      if (data.type === 'register') {
+        userNumber = data.customNumber;
+        clients[userNumber] = ws;
+      }
+
+      // Tabbatar da PIN na OPay / Voucher
+      if (data.type === 'redeem-pin') {
+        const pin = data.pin;
+        if (validPins[pin]) {
+          const amount = validPins[pin];
+          ws.send(JSON.stringify({ type: 'pin-success', amount: amount }));
+          delete validPins[pin]; // Ana amfani da PIN sau ɗaya kacal
+        } else {
+          ws.send(JSON.stringify({ type: 'pin-error', message: 'Lambar PIN ba ta da aiki ko an riga an yi amfani da ita!' }));
+        }
+      }
+
+      // Tsarin Kira (WebRTC Signaling)
+      if (data.type === 'offer' || data.type === 'answer' || data.type === 'ice-candidate') {
+        const targetClient = clients[data.target];
+        if (targetClient && targetClient.readyState === WebSocket.OPEN) {
+          targetClient.send(JSON.stringify(data));
+        }
+      }
+
     } catch (e) {
-      console.log('Kuskure:', e);
+      console.error(e);
     }
   });
 
   ws.on('close', () => {
-    if (ws.customNumber && clients[ws.customNumber]) {
-      delete clients[ws.customNumber];
+    if (userNumber && clients[userNumber]) {
+      delete clients[userNumber];
     }
   });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server yana aiki a tashar ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });
+
