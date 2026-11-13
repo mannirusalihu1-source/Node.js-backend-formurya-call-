@@ -13,9 +13,13 @@ app.get('/', (req, res) => {
   res.send('Murya Call Backend & Billing System is running!');
 });
 
-// Twilio Setup (Sanya Account SID, Auth Token da Lambarka ta Twilio)
-const twilioClient = twilio('AC_YOUR_TWILIO_ACCOUNT_SID', 'YOUR_AUTH_TOKEN');
-const twilioPhoneNumber = '+1234567890';
+const twilioClient = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
+const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
+
+
 
 let clients = {};
 global.otpStorage = {};
@@ -74,7 +78,7 @@ wss.on('connection', (ws) => {
         if (validPins[pin]) {
           const amount = validPins[pin];
           ws.send(JSON.stringify({ type: 'pin-success', amount: amount }));
-          delete validPins[pin]; // Ana amfani da PIN sau ɗaya kacal
+          delete validPins[pin];
         } else {
           ws.send(JSON.stringify({ type: 'pin-error', message: 'Lambar PIN ba ta da aiki ko an riga an yi amfani da ita!' }));
         }
@@ -104,4 +108,3 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
-
