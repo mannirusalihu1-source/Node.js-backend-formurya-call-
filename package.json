@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node server.js"
   },
-  "dependencies": {
+  ""dependencies": {
     "express": "^4.19.2",
-    "ws": "^8.16.0"
+    "ws": "^8.16.0",
+    "twilio": "^4.20.0"
   }
-}
