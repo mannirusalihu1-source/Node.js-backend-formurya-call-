@@ -12,10 +12,9 @@ app.use(express.json());
 app.get('/', (req, res) => {
   res.send('Murya Call Backend & Billing System is running!');
 });
-
 const twilioClient = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
+    process.env.TWILIO_ACCOUNT_SID,
+    process.env.TWILIO_AUTH_TOKEN
 );
 const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
 
