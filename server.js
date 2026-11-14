@@ -1,7 +1,7 @@
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
-const twilio = require('twilio');
+const axios = require('axios'); // Mun shigar da axios domin tura saƙon Termii
 
 const app = express();
 const server = http.createServer(app);
@@ -10,100 +10,80 @@ const wss = new WebSocket.Server({ server });
 app.use(express.json());
 
 app.get('/', (req, res) => {
-  res.send('Murya Call Backend & Billing System is running!');
+    res.send('Murya Call Backend & Billing System is running!');
 });
-const twilioClient = twilio(
-    process.env.TWILIO_ACCOUNT_SID,
-    process.env.TWILIO_AUTH_TOKEN
-);
-const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
-
-
 
 let clients = {};
 global.otpStorage = {};
 
-// Lambobin PIN na Gwaji da adadin kuɗinsu
+// Lambobin PIN na Gwaji da adadin kudinsu
 let validPins = {
-  "1111222233": 100,  // PIN na ₦100 (Minti 5)
-  "4444555566": 200,  // PIN na ₦200 (Minti 10)
-  "7777888899": 500,  // PIN na ₦500 (Minti 25)
-  "1010202030": 1000  // PIN na ₦1,000 (Minti 50)
+    "1111222233": 100, // PIN na ₦100 (Minti 5)
+    "444455566": 200,  // PIN na ₦200 (Minti 10)
 };
 
 wss.on('connection', (ws) => {
-  let userNumber = null;
+    console.log('Sabon mai amfani ya haɗu ta WebSocket.');
 
-  ws.on('message', async (message) => {
-    try {
-      const data = JSON.parse(message);
-
-      // Tura OTP zuwa SIM ta Twilio
-      if (data.type === 'send-otp') {
-        const otpCode = Math.floor(1000 + Math.random() * 9000).toString();
-        global.otpStorage[data.phone] = otpCode;
-
+    ws.on('message', async (message) => {
         try {
-          await twilioClient.messages.create({
-            body: `Lambar tabbatarwarku ta Murya Call ita ce: ${otpCode}`,
-            from: twilioPhoneNumber,
-            to: data.phone
-          });
-          ws.send(JSON.stringify({ type: 'otp-sent', message: 'An tura lambar OTP zuwa lambarka ta SIM!' }));
-        } catch (err) {
-          console.error(err);
-          ws.send(JSON.stringify({ type: 'otp-error', message: 'Kuskure wajen tura sakon OTP ta Twilio.' }));
+            const data = JSON.parse(message);
+
+            // Idan an buƙaci a tura OTP
+            if (data.action === 'send-otp') {
+                const phoneNumber = data.phone;
+                const otpCode = Math.floor(100000 + Math.random() * 900000); // Ƙirƙirar lamba 6
+
+                // Ajiye OTP ɗin domin tabbatarwa nan gaba
+                global.otpStorage[phoneNumber] = otpCode;
+
+                // Tura saƙon OTP ta Termii API
+                const termiiResponse = await axios.post('https://api.ng.termii.com/api/sms/send', {
+                    api_key: "tlv_xH5ZHRTqn8v7zbQraVadowtjoyaa-utgwdWPZNuHFy4",
+                    to: phoneNumber,
+                    from: "N-Alert",
+                    sms: `Lambar tabbatarwa ta Murya Call ita ce: ${otpCode}`,
+                    type: "plain",
+                    channel: "generic"
+                });
+
+                console.log('Termii Response:', termiiResponse.data);
+
+                ws.send(JSON.stringify({
+                    status: 'otp-sent',
+                    message: 'An tura OTP zuwa lambar wayarka nasara!'
+                }));
+            }
+
+            // Idan an buƙaci a tabbatgar da OTP
+            else if (data.action === 'verify-otp') {
+                const phoneNumber = data.phone;
+                const userOtp = data.otp;
+
+                if (global.otpStorage[phoneNumber] && global.otpStorage[phoneNumber] == userOtp) {
+                    ws.send(JSON.stringify({
+                        status: 'otp-verified',
+                        message: 'An tabbatar da lambar OTP nasara!'
+                    }));
+                } else {
+                    ws.send(JSON.stringify({
+                        status: 'error',
+                        message: 'Lambar OTP ba daidai ba ce ko kuma ta wuce lokaci.'
+                    }));
+                }
+            }
+
+        } catch (error) {
+            console.error('Kuskure:', error.response?.data || error.message);
+            ws.send(JSON.stringify({
+                status: 'error',
+                message: 'An samu matsala wajen aiwatar da buƙatar.'
+            }));
         }
-      }
-
-      // Tabbatar da OTP da mai amfani ya saka
-      if (data.type === 'verify-otp') {
-        if (global.otpStorage[data.phone] && global.otpStorage[data.phone] === data.otp) {
-          ws.send(JSON.stringify({ type: 'otp-verified' }));
-        } else {
-          ws.send(JSON.stringify({ type: 'otp-error', message: 'Lambar OTP ba daidai ba ce!' }));
-        }
-      }
-
-      // Rijistar Mai Amfani a WebSocket
-      if (data.type === 'register') {
-        userNumber = data.customNumber;
-        clients[userNumber] = ws;
-      }
-
-      // Tabbatar da PIN na OPay / Voucher
-      if (data.type === 'redeem-pin') {
-        const pin = data.pin;
-        if (validPins[pin]) {
-          const amount = validPins[pin];
-          ws.send(JSON.stringify({ type: 'pin-success', amount: amount }));
-          delete validPins[pin];
-        } else {
-          ws.send(JSON.stringify({ type: 'pin-error', message: 'Lambar PIN ba ta da aiki ko an riga an yi amfani da ita!' }));
-        }
-      }
-
-      // Tsarin Kira (WebRTC Signaling)
-      if (data.type === 'offer' || data.type === 'answer' || data.type === 'ice-candidate') {
-        const targetClient = clients[data.target];
-        if (targetClient && targetClient.readyState === WebSocket.OPEN) {
-          targetClient.send(JSON.stringify(data));
-        }
-      }
-
-    } catch (e) {
-      console.error(e);
-    }
-  });
-
-  ws.on('close', () => {
-    if (userNumber && clients[userNumber]) {
-      delete clients[userNumber];
-    }
-  });
+    });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+    console.log(`Server yana aiki a tashar ${PORT}`);
 });
