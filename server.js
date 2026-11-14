@@ -71,7 +71,8 @@ wss.on('connection', (ws) => {
                         message: 'Lambar OTP ba daidai ba ce ko kuma ta wuce lokaci.'
                     }));
                 }
-            }// Idan an buƙaci a tura OTP
+            }// Idan an buƙaci a tura O
+          
 if (data.action === 'send-otp') {
     const phoneNumber = data.phone;
     const otpCode = Math.floor(100000 + Math.random() * 900000); // Kirkirar lamba 6
@@ -83,7 +84,7 @@ if (data.action === 'send-otp') {
     const termiiResponse = await axios.post('https://v4.api.termii.com/api/sms/send', {
         api_key: "tlv_xH5ZHRTqn8v7zbQraVadowtjoyaa-utgwdWPZNuHFy4",
         to: phoneNumber,
-        from: "N-Alert",
+        from: "2347013833786",
         sms: `Lambar tabbatarwa ta Murya Call ita ce: ${otpCode}`,
         type: "plain",
         channel: "generic"
@@ -96,6 +97,4 @@ if (data.action === 'send-otp') {
         message: 'An tura OTP zuwa lambar wayarka nasara!'
     }));
 }
-
-
-     
+  
