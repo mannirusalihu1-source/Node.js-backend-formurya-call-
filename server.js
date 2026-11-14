@@ -97,4 +97,7 @@ if (data.action === 'send-otp') {
         message: 'An tura OTP zuwa lambar wayarka nasara!'
     }));
 }
-  
+  const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
