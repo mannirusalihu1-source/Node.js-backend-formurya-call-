@@ -71,19 +71,31 @@ wss.on('connection', (ws) => {
                         message: 'Lambar OTP ba daidai ba ce ko kuma ta wuce lokaci.'
                     }));
                 }
-            }
+            }// Idan an buƙaci a tura OTP
+if (data.action === 'send-otp') {
+    const phoneNumber = data.phone;
+    const otpCode = Math.floor(100000 + Math.random() * 900000); // Kirkirar lamba 6
 
-        } catch (error) {
-            console.error('Kuskure:', error.response?.data || error.message);
-            ws.send(JSON.stringify({
-                status: 'error',
-                message: 'An samu matsala wajen aiwatar da buƙatar.'
-            }));
-        }
+    // Ajiye OTP din domin tabbatarwa nan gaba
+    global.otpStorage[phoneNumber] = otpCode;
+
+    // Tura sakon OTP ta sabon Termii v4 API
+    const termiiResponse = await axios.post('https://v4.api.termii.com/api/sms/send', {
+        api_key: "tlv_xH5ZHRTqn8v7zbQraVadowtjoyaa-utgwdWPZNuHFy4",
+        to: phoneNumber,
+        from: "N-Alert",
+        sms: `Lambar tabbatarwa ta Murya Call ita ce: ${otpCode}`,
+        type: "plain",
+        channel: "generic"
     });
-});
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Server yana aiki a tashar ${PORT}`);
-});
+    console.log('Termii Response:', termiiResponse.data);
+
+    ws.send(JSON.stringify({
+        status: 'otp-sent',
+        message: 'An tura OTP zuwa lambar wayarka nasara!'
+    }));
+}
+
+
+     
