@@ -1,7 +1,7 @@
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
-const axios = require('axios'); // Mun shigar da axios domin tura saƙon Termii
+const axios = require('axios'); // Mun shigar da axios domin tura sakon Termii
 
 const app = express();
 const server = http.createServer(app);
@@ -18,7 +18,7 @@ global.otpStorage = {};
 
 // Lambobin PIN na Gwaji da adadin kudinsu
 let validPins = {
-    "1111222233": 100, // PIN na ₦100 (Minti 5)
+    "1111222333": 100, // PIN na ₦100 (Minti 5)
     "444455566": 200,  // PIN na ₦200 (Minti 10)
 };
 
@@ -32,16 +32,16 @@ wss.on('connection', (ws) => {
             // Idan an buƙaci a tura OTP
             if (data.action === 'send-otp') {
                 const phoneNumber = data.phone;
-                const otpCode = Math.floor(100000 + Math.random() * 900000); // Ƙirƙirar lamba 6
+                const otpCode = Math.floor(100000 + Math.random() * 900000); // Kirirar lamba 6
 
-                // Ajiye OTP ɗin domin tabbatarwa nan gaba
+                // Ajiye OTP din domin tabbatarwa nan gaba
                 global.otpStorage[phoneNumber] = otpCode;
 
-                // Tura saƙon OTP ta Termii API
-                const termiiResponse = await axios.post('https://api.ng.termii.com/api/sms/send', {
+                // Tura sakon OTP ta sabon Termii v4 API
+                const termiiResponse = await axios.post('https://v4.api.termcii.com/api/sms/send', {
                     api_key: "tlv_xH5ZHRTqn8v7zbQraVadowtjoyaa-utgwdWPZNuHFy4",
                     to: phoneNumber,
-                    from: "N-Alert",
+                    from: "2347013833786",
                     sms: `Lambar tabbatarwa ta Murya Call ita ce: ${otpCode}`,
                     type: "plain",
                     channel: "generic"
@@ -54,8 +54,8 @@ wss.on('connection', (ws) => {
                     message: 'An tura OTP zuwa lambar wayarka nasara!'
                 }));
             }
-
-            // Idan an buƙaci a tabbatgar da OTP
+            
+            // Idan an buƙaci a tabbatar da OTP
             else if (data.action === 'verify-otp') {
                 const phoneNumber = data.phone;
                 const userOtp = data.otp;
@@ -71,33 +71,19 @@ wss.on('connection', (ws) => {
                         message: 'Lambar OTP ba daidai ba ce ko kuma ta wuce lokaci.'
                     }));
                 }
-            }// Idan an buƙaci a tura O
-          
-if (data.action === 'send-otp') {
-    const phoneNumber = data.phone;
-    const otpCode = Math.floor(100000 + Math.random() * 900000); // Kirkirar lamba 6
+            }
 
-    // Ajiye OTP din domin tabbatarwa nan gaba
-    global.otpStorage[phoneNumber] = otpCode;
-
-    // Tura sakon OTP ta sabon Termii v4 API
-    const termiiResponse = await axios.post('https://v4.api.termii.com/api/sms/send', {
-        api_key: "tlv_xH5ZHRTqn8v7zbQraVadowtjoyaa-utgwdWPZNuHFy4",
-        to: phoneNumber,
-        from: "2347013833786",
-        sms: `Lambar tabbatarwa ta Murya Call ita ce: ${otpCode}`,
-        type: "plain",
-        channel: "generic"
+        } catch (error) {
+            console.error('Kuskure:', error.response?.data || error.message);
+            ws.send(JSON.stringify({
+                status: 'error',
+                message: 'An samu matsala wajen aiwatar da bukatan.'
+            }));
+        }
     });
+});
 
-    console.log('Termii Response:', termiiResponse.data);
-
-    ws.send(JSON.stringify({
-        status: 'otp-sent',
-        message: 'An tura OTP zuwa lambar wayarka nasara!'
-    }));
-}
-  const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
