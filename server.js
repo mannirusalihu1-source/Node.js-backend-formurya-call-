@@ -3,99 +3,90 @@ const WebSocket = require('ws');
 const axios = require('axios');
 
 const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Murya Call Server is running successfully!\n');
+    res.writeHead(200, {'Content-Type': 'text/plain'});
+    res.end('Server is running!\n');
 });
 
-const wss = new WebSocket.Server({ server });
-
+const wss = new WebSocket.Server({server});
 global.otpStorage = {};
 
 wss.on('connection', (ws) => {
-    console.log('Sabon mai amfani ya haɗu da Server (Connected).');
-
-    ws.on('message', async (message) => {
+    console.log('Connected.');
+    
+    ws.on('message', async (msg) => {
         try {
-            const data = JSON.parse(message);
+            const data = JSON.parse(msg);
 
-            // 1. Tura Saƙon OTP ta Termii API
+            // 1. Send OTP
             if (data.action === 'send-otp') {
-                const phoneNumber = data.phone;
-                const otpCode = Math.floor(1000 + Math.random() * 9000);
-                global.otpStorage[phoneNumber] = otpCode;
+                const phone = data.phone;
+                const code = Math.floor(1000 + Math.random() * 9000);
+                global.otpStorage[phone] = code;
 
-                const termiiResponse = await axios.post('https://api.termii.com/api/sms/send', {
+                await axios.post('https://api.termii.com/api/sms/send', {
                     api_key: "tlv_xH5ZHRtqn8v7zbQraVadowtjoyaa-utgwdWPZNuHFy4",
-                    to: phoneNumber,
+                    to: phone,
                     from: "MuryaCall",
-                    sms: `Lambar tabbatarwa ta Murya Call ita ce: ${otpCode}`,
+                    sms: `OTP: ${code}`,
                     type: "plain",
                     channel: "generic"
                 });
 
-                console.log('Termii Response:', termiiResponse.data);
-
                 ws.send(JSON.stringify({
                     status: 'otp-sent',
-                    message: 'An tura OTP zuwa lambar wayarka nasara!'
+                    message: 'An tura OTP!'
                 }));
             }
 
-            // 2. Tabbatar da OTP da mai amfani ya saka
+            // 2. Verify OTP
             else if (data.action === 'verify-otp') {
-                const phoneNumber = data.phone;
-                const userOtp = data.otp;
+                const phone = data.phone;
+                const otp = data.otp;
 
-                if (global.otpStorage[phoneNumber] && global.otpStorage[phoneNumber].toString() === userOtp.toString()) {
+                if (global.otpStorage[phone] && global.otpStorage[phone].toString() === otp.toString()) {
                     ws.send(JSON.stringify({
                         status: 'otp-verified',
-                        message: 'An tabbatar da lambar nasara!'
+                        message: 'Nasara!'
                     }));
                 } else {
                     ws.send(JSON.stringify({
                         status: 'error',
-                        message: 'Lambar OTP ba daidai ba ce ko kuma ta wuce lokaci.'
+                        message: 'Kuskure!'
                     }));
                 }
             }
 
-            // 3. Fara Kira ta Twilio Voice API
+            // 3. Make Call
             else if (data.action === 'make-call') {
-                const accountSid = process.env.TWILIO_ACCOUNT_SID;
-                const authToken = process.env.TWILIO_AUTH_TOKEN;
-                const targetPhoneNumber = data.phone;
-                const twilioNumber = '+18777804236';
+                const sid = process.env.TWILIO_ACCOUNT_SID;
+                const token = process.env.TWILIO_AUTH_TOKEN;
+                const phone = data.phone;
+                const fromNum = '+18777804236';
 
-                const twilioResponse = await axios.post(
-                    `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json`,
+                await axios.post(
+                    `https://api.twilio.com/2010-04-01/Accounts/${sid}/Calls.json`,
                     new URLSearchParams({
-                        To: targetPhoneNumber,
-                        From: twilioNumber,
+                        To: phone,
+                        From: fromNum,
                         Url: 'http://demo.twilio.com/docs/voice.xml'
                     }),
                     {
-                        auth: {
-                            username: accountSid,
-                            password: authToken
-                        },
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded'
-                        }
+                        auth: { username: sid, password: token },
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
                     }
                 );
 
-                console.log('Twilio Response:', twilioResponse.data);
                 ws.send(JSON.stringify({
                     status: 'call-started',
-                    message: 'Ana neman lambar da aka kira...'
+                    message: 'Ana kira...'
                 }));
             }
 
-        } catch (error) {
-            console.error('Kuskure:', error.response?.data || error.message);
+        } catch (err) {
+            console.error(err);
             ws.send(JSON.stringify({
                 status: 'error',
-                message: 'An samu matsala wajen aiwatar da bukatan.'
+                message: 'An samu matsala.'
             }));
         }
     });
@@ -103,5 +94,5 @@ wss.on('connection', (ws) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.log('Server port:', PORT);
 });
