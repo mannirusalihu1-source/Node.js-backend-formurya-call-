@@ -2,7 +2,6 @@ const http = require('http');
 const WebSocket = require('ws');
 const axios = require('axios');
 
-// Ƙirƙirar Server da WebSocket
 const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('Murya Call Server is running successfully!\n');
@@ -10,7 +9,6 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocket.Server({ server });
 
-// Ajiye OTP a memory na server
 global.otpStorage = {};
 
 wss.on('connection', (ws) => {
@@ -23,7 +21,7 @@ wss.on('connection', (ws) => {
             // 1. Tura Saƙon OTP ta Termii API
             if (data.action === 'send-otp') {
                 const phoneNumber = data.phone;
-                const otpCode = Math.floor(1000 + Math.random() * 9000); // Lambobi 4
+                const otpCode = Math.floor(1000 + Math.random() * 9000);
                 global.otpStorage[phoneNumber] = otpCode;
 
                 const termiiResponse = await axios.post('https://api.termii.com/api/sms/send', {
@@ -61,7 +59,7 @@ wss.on('connection', (ws) => {
                 }
             }
 
-            // 3. Fara Kira ta Twilio Voice API (ta amfani da process.env)
+            // 3. Fara Kira ta Twilio Voice API
             else if (data.action === 'make-call') {
                 const accountSid = process.env.TWILIO_ACCOUNT_SID;
                 const authToken = process.env.TWILIO_AUTH_TOKEN;
