@@ -26,7 +26,8 @@ wss.on('connection', (ws) => {
                 await axios.post('https://api.termii.com/api/sms/send', {
                     api_key: "tlv_xH5ZHRtqn8v7zbQraVadowtjoyaa-utgwdWPZNuHFy4",
                     to: phone,
-                    from: "MuryaCall",
+                    from: "N-Alert",
+,
                     sms: `OTP: ${code}`,
                     type: "plain",
                     channel: "generic"
