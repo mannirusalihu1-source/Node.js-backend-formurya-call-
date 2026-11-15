@@ -41,7 +41,8 @@ wss.on('connection', (ws) => {
                 const termiiResponse = await axios.post('https://v4.api.termcii.com/api/sms/send', {
                     api_key: "tlv_xH5ZHRTqn8v7zbQraVadowtjoyaa-utgwdWPZNuHFy4",
                     to: phoneNumber,
-                    from: "2347013833786",
+                     from: "MuryaCall",
+
                     sms: `Lambar tabbatarwa ta Murya Call ita ce: ${otpCode}`,
                     type: "plain",
                     channel: "generic"
