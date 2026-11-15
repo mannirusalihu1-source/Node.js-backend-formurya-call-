@@ -38,10 +38,16 @@ wss.on('connection', (ws) => {
                 global.otpStorage[phoneNumber] = otpCode;
 
                 // Tura sakon OTP ta sabon Termii v4 API
-                const termiiResponse = await axios.post('https://v4.api.termcii.com/api/sms/send', {
-                    api_key: "tlv_xH5ZHRTqn8v7zbQraVadowtjoyaa-utgwdWPZNuHFy4",
-                    to: phoneNumber,
-                     from: "MuryaCall",
+                const termiiResponse = await axios.post('https://api.termii.com/api/sms/send
+
+                      api_key: "tlv_xH5ZHRtqn8v7zbQraVadowtjoyaa-utgwdWPZNuHFy4",
+    to: phoneNumber,
+    from: "MuryaCall",
+    sms: `Lambar tabbatarwa ta Murya Call ita ce: ${otpCode}`,
+    type: "plain",
+    channel: "generic"
+});
+
 
                     sms: `Lambar tabbatarwa ta Murya Call ita ce: ${otpCode}`,
                     type: "plain",
