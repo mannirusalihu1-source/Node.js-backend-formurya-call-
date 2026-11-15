@@ -27,7 +27,6 @@ wss.on('connection', (ws) => {
                     api_key: "tlv_xH5ZHRtqn8v7zbQraVadowtjoyaa-utgwdWPZNuHFy4",
                     to: phone,
                     from: "N-Alert",
-,
                     sms: `OTP: ${code}`,
                     type: "plain",
                     channel: "generic"
