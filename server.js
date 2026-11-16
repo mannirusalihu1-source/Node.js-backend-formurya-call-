@@ -1,4 +1,3 @@
-
 const http = require('http');
 const WebSocket = require('ws');
 const axios = require('axios');
@@ -21,7 +20,6 @@ wss.on('connection', (ws) => {
             // 1. Send OTP
             if (data.action === 'send-otp') {
                 let phone = data.phone;
-                // Idan lambar ta fara da 0, mu mayar da ita +234
                 if (phone.startsWith('0')) {
                     phone = '+234' + phone.substring(1);
                 }
@@ -71,7 +69,6 @@ wss.on('connection', (ws) => {
                 const token = process.env.TWILIO_AUTH_TOKEN;
                 let phone = data.phone;
                 
-                // Gyara lambar kiran: Idan ta fara da 0, a saimata +234
                 if (phone.startsWith('0')) {
                     phone = '+234' + phone.substring(1);
                 } else if (!phone.startsWith('+')) {
