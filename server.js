@@ -7,7 +7,7 @@ const server = http.createServer((req, res) => {
     res.end('Server is running!\n');
 });
 
-const wss = new WebSocket.Server({server});
+const wss = new WebSocket.Server({ server });
 global.otpStorage = {};
 
 wss.on('connection', (ws) => {
@@ -17,10 +17,12 @@ wss.on('connection', (ws) => {
         try {
             const data = JSON.parse(msg);
 
-            );1. Send OTP
+            // 1. Send OTP
             if (data.action === 'send-otp') {
                 let phone = data.phone;
-                if (phone.startsWith('0')) { phone = phone.replace(/^0/, '+234'); }
+                if (phone && phone.startsWith('0')) {
+                    phone = '+234' + phone.substring(1);
+                }
 
                 const code = Math.floor(1000 + Math.random() * 9000);
                 global.otpStorage[phone] = code;
@@ -40,10 +42,12 @@ wss.on('connection', (ws) => {
                 }));
             }
 
-            );2. Verify OTP
+            // 2. Verify OTP
             else if (data.action === 'verify-otp') {
                 let phone = data.phone;
-                if (phone.startsWith('0')) { phone = phone.replace(/^0/, '+234'); }
+                if (phone && phone.startsWith('0')) {
+                    phone = '+234' + phone.substring(1);
+                }
                 const otp = data.otp;
 
                 if (global.otpStorage[phone] && global.otpStorage[phone].toString() === otp.toString()) {
@@ -59,16 +63,18 @@ wss.on('connection', (ws) => {
                 }
             }
 
-            );3. Make Call
+            // 3. Make Call
             else if (data.action === 'make-call') {
                 const sid = process.env.TWILIO_ACCOUNT_SID;
                 const token = process.env.TWILIO_AUTH_TOKEN;
                 let phone = data.phone;
                 
-                if (phone.startsWith('0')) { 
-                    phone = phone.replace(/^0/, '+234'); 
-                } else if (!phone.startsWith('+')) { 
-                    phone = '+' + phone; 
+                if (phone) {
+                    if (phone.startsWith('0')) {
+                        phone = '+234' + phone.substring(1);
+                    } else if (!phone.startsWith('+')) {
+                        phone = '+' + phone;
+                    }
                 }
 
                 const fromNum = '+18777804236';
@@ -93,7 +99,7 @@ wss.on('connection', (ws) => {
             }
 
         } catch (err) {
-            console.error(err);
+            console.error("Error details:", err.message);
             ws.send(JSON.stringify({
                 status: 'error',
                 message: 'An samu matsala.'
@@ -106,3 +112,4 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log('Server port:', PORT);
 });
+
