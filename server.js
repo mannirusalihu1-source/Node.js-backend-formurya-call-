@@ -17,7 +17,7 @@ wss.on('connection', (ws) => {
         try {
             const data = JSON.parse(msg);
 
-            // 1. Send OTP
+            } 1. Send OTP
             if (data.action === 'send-otp') {
                 let phone = data.phone;
                 if (phone && phone.startsWith('0')) {
@@ -42,7 +42,7 @@ wss.on('connection', (ws) => {
                 }));
             }
 
-            // 2. Verify OTP
+            } 2. Verify OTP
             else if (data.action === 'verify-otp') {
                 let phone = data.phone;
                 if (phone && phone.startsWith('0')) {
@@ -63,7 +63,7 @@ wss.on('connection', (ws) => {
                 }
             }
 
-            // 3. Make Call
+            } 3. Make Call
             else if (data.action === 'make-call') {
                 const sid = process.env.TWILIO_ACCOUNT_SID;
                 const token = process.env.TWILIO_AUTH_TOKEN;
