@@ -20,9 +20,7 @@ wss.on('connection', (ws) => {
             // 1. Send OTP
             if (data.action === 'send-otp') {
                 let phone = data.phone;
-                if (phone.startsWith('0')) {
-                    phone = '+234' + phone.substring(1);
-                }
+                if (phone.startsWith('0')) { phone = phone.replace(/^0/, '+234'); }
 
                 const code = Math.floor(1000 + Math.random() * 9000);
                 global.otpStorage[phone] = code;
@@ -45,9 +43,7 @@ wss.on('connection', (ws) => {
             // 2. Verify OTP
             else if (data.action === 'verify-otp') {
                 let phone = data.phone;
-                if (phone.startsWith('0')) {
-                    phone = '+234' + phone.substring(1);
-                }
+                if (phone.startsWith('0')) { phone = phone.replace(/^0/, '+234'); }
                 const otp = data.otp;
 
                 if (global.otpStorage[phone] && global.otpStorage[phone].toString() === otp.toString()) {
@@ -69,10 +65,10 @@ wss.on('connection', (ws) => {
                 const token = process.env.TWILIO_AUTH_TOKEN;
                 let phone = data.phone;
                 
-                if (phone.startsWith('0')) {
-                    phone = '+234' + phone.substring(1);
-                } else if (!phone.startsWith('+')) {
-                    phone = '+' + phone;
+                if (phone.startsWith('0')) { 
+                    phone = phone.replace(/^0/, '+234'); 
+                } else if (!phone.startsWith('+')) { 
+                    phone = '+' + phone; 
                 }
 
                 const fromNum = '+18777804236';
