@@ -1,3 +1,4 @@
+
 const http = require('http');
 const WebSocket = require('ws');
 const axios = require('axios');
@@ -19,7 +20,12 @@ wss.on('connection', (ws) => {
 
             // 1. Send OTP
             if (data.action === 'send-otp') {
-                const phone = data.phone;
+                let phone = data.phone;
+                // Idan lambar ta fara da 0, mu mayar da ita +234
+                if (phone.startsWith('0')) {
+                    phone = '+234' + phone.substring(1);
+                }
+
                 const code = Math.floor(1000 + Math.random() * 9000);
                 global.otpStorage[phone] = code;
 
@@ -40,7 +46,10 @@ wss.on('connection', (ws) => {
 
             // 2. Verify OTP
             else if (data.action === 'verify-otp') {
-                const phone = data.phone;
+                let phone = data.phone;
+                if (phone.startsWith('0')) {
+                    phone = '+234' + phone.substring(1);
+                }
                 const otp = data.otp;
 
                 if (global.otpStorage[phone] && global.otpStorage[phone].toString() === otp.toString()) {
@@ -60,7 +69,15 @@ wss.on('connection', (ws) => {
             else if (data.action === 'make-call') {
                 const sid = process.env.TWILIO_ACCOUNT_SID;
                 const token = process.env.TWILIO_AUTH_TOKEN;
-                const phone = data.phone;
+                let phone = data.phone;
+                
+                // Gyara lambar kiran: Idan ta fara da 0, a saimata +234
+                if (phone.startsWith('0')) {
+                    phone = '+234' + phone.substring(1);
+                } else if (!phone.startsWith('+')) {
+                    phone = '+' + phone;
+                }
+
                 const fromNum = '+18777804236';
 
                 await axios.post(
