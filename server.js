@@ -21,7 +21,8 @@ wss.on('connection', (ws) => {
             if (data.action === 'send-otp') {
                 let p = data.phone;
                 if (p && p.startsWith('0')) {
-                    p = '+234' + p.slice(1);
+                    let sub = p.slice(1);
+                    p = '+234' + sub;
                 }
 
                 const code = Math.floor(1000 + Math.random() * 9000);
@@ -46,7 +47,8 @@ wss.on('connection', (ws) => {
             else if (data.action === 'verify-otp') {
                 let p = data.phone;
                 if (p && p.startsWith('0')) {
-                    p = '+234' + p.slice(1);
+                    let sub = p.slice(1);
+                    p = '+234' + sub;
                 }
                 const otp = data.otp;
 
@@ -71,8 +73,10 @@ wss.on('connection', (ws) => {
                 
                 if (p) {
                     if (p.startsWith('0')) {
-                        p = '+234' + p.slice(1);
-                    } else if (!p.startsWith('+')) {
+                        let sub = p.slice(1);
+                        p = '+234' + sub;
+                    } 
+                    else if (!p.startsWith('+')) {
                         p = '+' + p;
                     }
                 }
