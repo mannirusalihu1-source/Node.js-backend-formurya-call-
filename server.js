@@ -17,11 +17,11 @@ wss.on('connection', (ws) => {
         try {
             const data = JSON.parse(msg);
 
-            } 1. Send OTP
+            // 1. Send OTP
             if (data.action === 'send-otp') {
                 let phone = data.phone;
                 if (phone && phone.startsWith('0')) {
-                    phone = '+234' + phone.substring(1);
+                    phone = phone.replace('0', '+234');
                 }
 
                 const code = Math.floor(1000 + Math.random() * 9000);
@@ -42,11 +42,11 @@ wss.on('connection', (ws) => {
                 }));
             }
 
-            } 2. Verify OTP
+            // 2. Verify OTP
             else if (data.action === 'verify-otp') {
                 let phone = data.phone;
                 if (phone && phone.startsWith('0')) {
-                    phone = '+234' + phone.substring(1);
+                    phone = phone.replace('0', '+234');
                 }
                 const otp = data.otp;
 
@@ -63,7 +63,7 @@ wss.on('connection', (ws) => {
                 }
             }
 
-            } 3. Make Call
+            // 3. Make Call
             else if (data.action === 'make-call') {
                 const sid = process.env.TWILIO_ACCOUNT_SID;
                 const token = process.env.TWILIO_AUTH_TOKEN;
@@ -71,7 +71,7 @@ wss.on('connection', (ws) => {
                 
                 if (phone) {
                     if (phone.startsWith('0')) {
-                        phone = '+234' + phone.substring(1);
+                        phone = phone.replace('0', '+234');
                     } else if (!phone.startsWith('+')) {
                         phone = '+' + phone;
                     }
@@ -112,4 +112,5 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log('Server port:', PORT);
 });
+
 
