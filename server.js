@@ -2,8 +2,18 @@ const WebSocket = require('ws');
 const PORT = process.env.PORT || 10000;
 const wss = new WebSocket.Server({ port: PORT });
 
-let users = {}; // Tsarin adana masu amfani da lambobi da balances su
-let activeCalls = {}; // Tsarin kula da lokacin kiran mutane
+let users = {};       // Masu amfani da suke kan layi (Online)
+let wallets = {};     // Ma'ajiyar kuɗin kowane mutum (Balance)
+let activeCalls = {}; // Masu magana a halin yanzu
+
+// JERIN KATUNAN CAJI (RECHARGE CARDS) DOMIN SAMUN RIBARKA
+// Zaka iya canza waɗannan lambobin ko ƙara wasu duk lokacin da kake so
+let validPins = {
+    "1111222233": 100,  // Katin ₦100
+    "4444555566": 200,  // Katin ₦200
+    "7777888899": 500,  // Katin ₦500
+    "1234567890": 1000  // Katin ₦1,000
+};
 
 wss.on('connection', (ws) => {
     ws.on('message', (message) => {
@@ -14,55 +24,94 @@ wss.on('connection', (ws) => {
             ws.phone = data.phone;
             users[data.phone] = ws;
             
-            // Idan sabon mutum ne, a bashi ₦100 kyauta ko ₦0 gwargwadon tsari
-            let balance = 100; 
+            // Idan sabon mutum ne, a ba shi ₦100 na gwaji (ko ka mayar da shi 0 idan ka fara kasuwanci)
+            if (wallets[data.phone] === undefined) {
+                wallets[data.phone] = 100; 
+            }
+
             ws.send(JSON.stringify({
                 action: 'registered',
                 phone: data.phone,
-                balance: balance
+                balance: wallets[data.phone]
             }));
         }
 
-        // 2. Tsarin Katin Kira (Recharge Card Top-up)
+        // 2. Tsarin Saka Katin Kira (Recharge Card Top-up)
         else if (data.action === 'recharge') {
             const pin = data.pin;
-            // Misali: Katin ₦200 zai ba da daraja ta musamman, kana iya sa dokar katin nan
-            if (pin && pin.length === 10) { // Misali idan pin ɗin ya kai lamba 10
-                // Ƙara kuɗi a wallet ɗin mai amfani (Misali ka ƙara ₦200)
-                // Wannan shine inda zaka sa ainihin lissafin ribarka da siyar da katin
+            const phone = data.phone;
+
+            if (validPins[pin]) {
+                const amount = validPins[pin];
+                wallets[phone] = (wallets[phone] || 0) + amount;
+                
+                // Goge katin don kada wani ya sake amfani da shi
+                delete validPins[pin];
+
                 ws.send(JSON.stringify({
                     action: 'recharge-success',
-                    message: 'An karɓi katin kuɗi cikin nasara!',
-                    newBalance: 250 // Misali sabon balance
+                    message: `An saka maka katin ₦${amount} cikin nasara!`,
+                    newBalance: wallets[phone]
                 }));
             } else {
                 ws.send(JSON.stringify({
                     action: 'error',
-                    message: 'Lambar katin da ka saka ba daidai ba ce!'
+                    message: 'Wannan lambar katin ba daidai ba ce ko an riga an yi amfani da ita!'
                 }));
             }
         }
 
-        // 3. Omban Fara Kira (Call Request da Cajin ₦20/minti)
+        // 3. Fara Kira da Cajin ₦20 duk Minti 1
         else if (data.action === 'call-request') {
             const caller = data.callerNumber;
             const receiver = data.receiverNumber;
 
             // Bincika ko mai kiran yana da akalla ₦20
-            // (A nan za mu iya ƙara binciken wallet balance ɗin mai kira)
+            if ((wallets[caller] || 0) < 20) {
+                ws.send(JSON.stringify({
+                    action: 'error',
+                    message: 'Kuɗin wallet ɗinka bai kai ₦20 ba. Da fatan za a saka kati!'
+                }));
+                return;
+            }
 
             if (users[receiver]) {
+                // Cire ₦20 na mintin farko da zarar an fara kiran
+                wallets[caller] -= 20;
+                ws.send(JSON.stringify({
+                    action: 'balance-update',
+                    newBalance: wallets[caller]
+                }));
+
                 users[receiver].send(JSON.stringify({
                     action: 'incoming-call',
                     callerNumber: caller,
                     signalData: data.signalData
                 }));
 
-                // Fara kirgawa don cire ₦20 duk bayan minti 1 (dakika 60)
+                // Cire ₦20 duk bayan daƙiƙa 60 (minti 1)
                 activeCalls[caller] = setInterval(() => {
-                    // Cire ₦20 duk minti ɗaya daga baya idan ana magana
-                    console.log(`Ana cire ₦20 daga ${caller}`);
+                    if (wallets[caller] >= 20) {
+                        wallets[caller] -= 20;
+                        if (users[caller]) {
+                            users[caller].send(JSON.stringify({
+                                action: 'balance-update',
+                                newBalance: wallets[caller]
+                            }));
+                        }
+                    } else {
+                        // Katse kiran idan kuɗin ya ƙare
+                        clearInterval(activeCalls[caller]);
+                        delete activeCalls[caller];
+                        if (users[caller]) {
+                            users[caller].send(JSON.stringify({
+                                action: 'force-hangup',
+                                message: 'Kuɗin wallet ɗinka ya ƙare!'
+                            }));
+                        }
+                    }
                 }, 60000);
+
             } else {
                 ws.send(JSON.stringify({
                     action: 'error',
@@ -71,7 +120,15 @@ wss.on('connection', (ws) => {
             }
         }
 
-        // 4. Signal tsakanin WebRTC
+        // 4. Katse kira da tsaida cajin kuɗi
+        else if (data.action === 'end-call') {
+            if (activeCalls[data.callerNumber]) {
+                clearInterval(activeCalls[data.callerNumber]);
+                delete activeCalls[data.callerNumber];
+            }
+        }
+
+        // 5. Signal tsakanin WebRTC
         else if (data.action === 'signal') {
             if (users[data.targetId]) {
                 users[data.targetId].send(JSON.stringify({
