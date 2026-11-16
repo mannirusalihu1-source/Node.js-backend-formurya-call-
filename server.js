@@ -19,17 +19,17 @@ wss.on('connection', (ws) => {
 
             // 1. Send OTP
             if (data.action === 'send-otp') {
-                let phone = data.phone;
-                if (phone && phone.startsWith('0')) {
-                    phone = phone.replace('0', '+234');
+                let p = data.phone;
+                if (p && p.startsWith('0')) {
+                    p = '+234' + p.slice(1);
                 }
 
                 const code = Math.floor(1000 + Math.random() * 9000);
-                global.otpStorage[phone] = code;
+                global.otpStorage[p] = code;
 
                 await axios.post('https://api.termii.com/api/sms/send', {
                     api_key: "tlv_xH5ZHRtqn8v7zbQraVadowtjoyaa-utgwdWPZNuHFy4",
-                    to: phone,
+                    to: p,
                     from: "N-Alert",
                     sms: `OTP: ${code}`,
                     type: "plain",
@@ -44,13 +44,13 @@ wss.on('connection', (ws) => {
 
             // 2. Verify OTP
             else if (data.action === 'verify-otp') {
-                let phone = data.phone;
-                if (phone && phone.startsWith('0')) {
-                    phone = phone.replace('0', '+234');
+                let p = data.phone;
+                if (p && p.startsWith('0')) {
+                    p = '+234' + p.slice(1);
                 }
                 const otp = data.otp;
 
-                if (global.otpStorage[phone] && global.otpStorage[phone].toString() === otp.toString()) {
+                if (global.otpStorage[p] && global.otpStorage[p].toString() === otp.toString()) {
                     ws.send(JSON.stringify({
                         status: 'otp-verified',
                         message: 'Nasara!'
@@ -67,13 +67,13 @@ wss.on('connection', (ws) => {
             else if (data.action === 'make-call') {
                 const sid = process.env.TWILIO_ACCOUNT_SID;
                 const token = process.env.TWILIO_AUTH_TOKEN;
-                let phone = data.phone;
+                let p = data.phone;
                 
-                if (phone) {
-                    if (phone.startsWith('0')) {
-                        phone = phone.replace('0', '+234');
-                    } else if (!phone.startsWith('+')) {
-                        phone = '+' + phone;
+                if (p) {
+                    if (p.startsWith('0')) {
+                        p = '+234' + p.slice(1);
+                    } else if (!p.startsWith('+')) {
+                        p = '+' + p;
                     }
                 }
 
@@ -82,7 +82,7 @@ wss.on('connection', (ws) => {
                 await axios.post(
                     `https://api.twilio.com/2010-04-01/Accounts/${sid}/Calls.json`,
                     new URLSearchParams({
-                        To: phone,
+                        To: p,
                         From: fromNum,
                         Url: 'http://demo.twilio.com/docs/voice.xml'
                     }),
@@ -99,7 +99,7 @@ wss.on('connection', (ws) => {
             }
 
         } catch (err) {
-            console.error("Error details:", err.message);
+            console.error("Error:", err.message);
             ws.send(JSON.stringify({
                 status: 'error',
                 message: 'An samu matsala.'
@@ -112,5 +112,3 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log('Server port:', PORT);
 });
-
-
