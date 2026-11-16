@@ -75,8 +75,8 @@ wss.on('connection', (ws) => {
                     if (p.startsWith('0')) {
                         let sub = p.slice(1);
                         p = '+234' + sub;
-                    } 
-                    else if (!p.startsWith('+')) {
+                    }
+                    if (!p.startsWith('+')) {
                         p = '+' + p;
                     }
                 }
