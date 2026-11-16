@@ -3,13 +3,12 @@ const WebSocket = require('ws');
 
 const server = http.createServer((req, res) => {
     res.writeHead(200, {'Content-Type': 'text/plain'});
-    res.end('Murya Call WebRTC Server is running!\n');
+    res.end('Murya Call Billing & WebRTC Server is running!\n');
 });
 
 const wss = new WebSocket.Server({ server });
-
-// Ajiye masu amfani da suka shiga (Clients)
-let clients = {};
+let clients = {}; // Ajiye lambobin masu amfani da kuma WebSocket ɗinsu
+let wallets = {}; // Ajiye kuɗin da ke cikin asusun kowane mai amfani
 
 wss.on('connection', (ws) => {
     console.log('Client connected.');
@@ -18,17 +17,52 @@ wss.on('connection', (ws) => {
         try {
             const data = JSON.parse(msg);
 
-            // Idan mai amfani ya yi Register da suna ko ID nasa
+            // 1. Yin Register da ba wa mutumlamba ko ID
             if (data.action === 'register') {
-                clients[data.userId] = ws;
-                console.log(`User registered: ${data.userId}`);
+                const userNumber = data.phone; // Lambar mai amfani
+                clients[userNumber] = ws;
+                
+                // Idan sabon mutum ne, mu buɗe masa wallet da ko da 0 ne ko kyautar farawa
+                if (!wallets[userNumber]) {
+                    wallets[userNumber] = 100; // Misali mun ba shi 100 Naira kyautar gwaji
+                }
+
+                ws.send(JSON.stringify({
+                    action: 'registered',
+                    phone: userNumber,
+                    balance: wallets[userNumber]
+                }));
+                console.log('User registered with number:', userNumber);
             }
 
-            // Tura WebRTC Signaling data (Offer, Answer, ICE) zuwa ga wanda ake kira
+            // 2. Duba ko yana da kuɗi sannan a tura kiran (Signaling)
+            else if (data.action === 'call-request') {
+                const caller = data.callerNumber;
+                const receiver = data.receiverNumber;
+
+                // Duba ko mai kiran yana da kuɗi a Wallet (misali aƙalla Naira 10)
+                if (wallets[caller] && wallets[caller] >= 10) {
+                    const targetWs = clients[receiver];
+                    if (targetWs && targetWs.readyState === WebSocket.OPEN) {
+                        // Sanar da wanda ake kira cewa ana kiransa
+                        targetWs.send(JSON.stringify({
+                            action: 'incoming-call',
+                            callerNumber: caller,
+                            signalData: data.signalData
+                        }));
+                    } else {
+                        ws.send(JSON.stringify({ action: 'error', message: 'Lambar bata online ba ko bata wanzu.' }));
+                    }
+                } else {
+                    ws.send(JSON.stringify({ action: 'error', message: 'Kudin asusunka sun ƙare! Ka cika kuɗi (Top up).' }));
+                }
+            }
+
+            // 3. Tura WebRTC Signaling tsakaninsu
             else if (data.action === 'signal') {
-                const targetClient = clients[data.targetId];
-                if (targetClient && targetClient.readyState === WebSocket.OPEN) {
-                    targetClient.send(JSON.stringify({
+                const target = clients[data.targetId];
+                if (target && target.readyState === WebSocket.OPEN) {
+                    target.send(JSON.stringify({
                         action: 'signal',
                         senderId: data.senderId,
                         signalData: data.signalData
@@ -42,11 +76,10 @@ wss.on('connection', (ws) => {
     });
 
     ws.on('close', () => {
-        // Cire mutumin da ya fita daga jerin clients
         for (let id in clients) {
             if (clients[id] === ws) {
                 delete clients[id];
-                console.log(`User disconnected: ${id}`);
+                console.log('Disconnected:', id);
                 break;
             }
         }
