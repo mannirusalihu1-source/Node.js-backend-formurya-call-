@@ -1,113 +1,54 @@
 const http = require('http');
 const WebSocket = require('ws');
-const axios = require('axios');
 
 const server = http.createServer((req, res) => {
     res.writeHead(200, {'Content-Type': 'text/plain'});
-    res.end('Server is running!\n');
+    res.end('Murya Call WebRTC Server is running!\n');
 });
 
 const wss = new WebSocket.Server({ server });
-global.otpStorage = {};
+
+// Ajiye masu amfani da suka shiga (Clients)
+let clients = {};
 
 wss.on('connection', (ws) => {
-    console.log('Connected.');
-    
-    ws.on('message', async (msg) => {
+    console.log('Client connected.');
+
+    ws.on('message', (msg) => {
         try {
             const data = JSON.parse(msg);
 
-            // 1. Send OTP
-            if (data.action === 'send-otp') {
-                let p = data.phone;
-                if (p && p.startsWith('0')) {
-                    let sub = p.slice(1);
-                    p = '+234' + sub;
-                }
-
-                const code = Math.floor(1000 + Math.random() * 9000);
-                global.otpStorage[p] = code;
-
-                await axios.post('https://api.termii.com/api/sms/send', {
-                    api_key: "tlv_xH5ZHRtqn8v7zbQraVadowtjoyaa-utgwdWPZNuHFy4",
-                    to: p,
-                    from: "N-Alert",
-                    sms: `OTP: ${code}`,
-                    type: "plain",
-                    channel: "generic"
-                });
-
-                ws.send(JSON.stringify({
-                    status: 'otp-sent',
-                    message: 'An tura OTP!'
-                }));
+            // Idan mai amfani ya yi Register da suna ko ID nasa
+            if (data.action === 'register') {
+                clients[data.userId] = ws;
+                console.log(`User registered: ${data.userId}`);
             }
 
-            // 2. Verify OTP
-            else if (data.action === 'verify-otp') {
-                let p = data.phone;
-                if (p && p.startsWith('0')) {
-                    let sub = p.slice(1);
-                    p = '+234' + sub;
-                }
-                const otp = data.otp;
-
-                if (global.otpStorage[p] && global.otpStorage[p].toString() === otp.toString()) {
-                    ws.send(JSON.stringify({
-                        status: 'otp-verified',
-                        message: 'Nasara!'
-                    }));
-                } else {
-                    ws.send(JSON.stringify({
-                        status: 'error',
-                        message: 'Kuskure!'
+            // Tura WebRTC Signaling data (Offer, Answer, ICE) zuwa ga wanda ake kira
+            else if (data.action === 'signal') {
+                const targetClient = clients[data.targetId];
+                if (targetClient && targetClient.readyState === WebSocket.OPEN) {
+                    targetClient.send(JSON.stringify({
+                        action: 'signal',
+                        senderId: data.senderId,
+                        signalData: data.signalData
                     }));
                 }
-            }
-
-            // 3. Make Call
-            else if (data.action === 'make-call') {
-                const sid = process.env.TWILIO_ACCOUNT_SID;
-                const token = process.env.TWILIO_AUTH_TOKEN;
-                let p = data.phone;
-                
-                if (p) {
-                    if (p.startsWith('0')) {
-                        let sub = p.slice(1);
-                        p = '+234' + sub;
-                    }
-                    if (!p.startsWith('+')) {
-                        p = '+' + p;
-                    }
-                }
-
-                const fromNum = '+18777804236';
-
-                await axios.post(
-                    `https://api.twilio.com/2010-04-01/Accounts/${sid}/Calls.json`,
-                    new URLSearchParams({
-                        To: p,
-                        From: fromNum,
-                        Url: 'http://demo.twilio.com/docs/voice.xml'
-                    }),
-                    {
-                        auth: { username: sid, password: token },
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-                    }
-                );
-
-                ws.send(JSON.stringify({
-                    status: 'call-started',
-                    message: 'Ana kira...'
-                }));
             }
 
         } catch (err) {
             console.error("Error:", err.message);
-            ws.send(JSON.stringify({
-                status: 'error',
-                message: 'An samu matsala.'
-            }));
+        }
+    });
+
+    ws.on('close', () => {
+        // Cire mutumin da ya fita daga jerin clients
+        for (let id in clients) {
+            if (clients[id] === ws) {
+                delete clients[id];
+                console.log(`User disconnected: ${id}`);
+                break;
+            }
         }
     });
 });
