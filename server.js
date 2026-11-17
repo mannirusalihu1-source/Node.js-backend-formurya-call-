@@ -1,3 +1,6 @@
+const WebSocket = require('ws');
+const PORT = process.env.PORT || 10000;
+const wss = new WebSocket.Server({ port: PORT });
 const AfricasTalking = require('africastalking')({
     apiKey: 'U5h@eyD3naHgkWR',
     username: 'sandbox',
