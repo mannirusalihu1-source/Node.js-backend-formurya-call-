@@ -1,3 +1,8 @@
+const AfricasTalking = require('africastalking')({
+    apiKey: 'ANKA SA API KEY DIN KA ANAN',
+    username: 'sandbox',
+});
+const sms = AfricasTalking.SMS;
 const WebSocket = require('ws');
 const PORT = process.env.PORT || 10000;
 const wss = new WebSocket.Server({ port: PORT });
