@@ -157,3 +157,18 @@ wss.on('connection', (ws) => {
 });
 
 console.log(`Server is running on port ${PORT}`);
+// Aikin tura sakon SMS ta hanyar Africa's Talking
+function sendAlertSMS(phone, messageText) {
+    const options = {
+        to: [phone],
+        message: messageText
+    };
+
+    sms.send(options)
+        .then(response => {
+            console.log('An tura sakon SMS nasara:', response);
+        })
+        .catch(error => {
+            console.log('Matsala wajen tura SMS:', error);
+        });
+}
