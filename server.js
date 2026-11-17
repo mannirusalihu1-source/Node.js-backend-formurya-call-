@@ -1,3 +1,8 @@
+// const AfricasTalking = require('africastalking')({
+//     apiKey: 'U5h@eyD3naHgkWR',
+//     username: 'sandbox',
+// });
+// const sms = AfricasTalking.SMS;
 const AfricasTalking = require('africastalking')({
     apiKey: 'U5h@eyD3naHgkWR;
     username: 'sandbox',
