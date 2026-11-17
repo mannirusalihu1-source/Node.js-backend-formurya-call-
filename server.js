@@ -1,5 +1,5 @@
 const AfricasTalking = require('africastalking')({
-    apiKey: 'ANKA SA API KEY DIN KA ANAN',
+    apiKey: 'U5h@eyD3naHgkWR;
     username: 'sandbox',
 });
 const sms = AfricasTalking.SMS;
