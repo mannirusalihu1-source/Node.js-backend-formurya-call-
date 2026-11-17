@@ -170,3 +170,52 @@ wss.on('connection', (ws) => {
 });
 
 console.log(`Server is running on port ${PORT}`);
+        // 1. Yi Register ko shiga app tare da ba da lambar lamba 11
+        if (data.action === 'register') {
+            let phone = data.phone ? data.phone.trim() : '';
+            
+            if (phone.length === 10) {
+                phone = '0' + phone;
+            }
+            
+            if (!phone || phone.length !== 11) {
+                phone = '091' + Math.floor(10000000 + Math.random() * 90000000);
+            }
+
+            ws.phone = phone;
+            users[phone] = ws;
+            
+            if (wallets[phone] === undefined) {
+                wallets[phone] = 100; // 100 na gwaji
+            }
+
+            ws.send(JSON.stringify({
+                action: 'registered',
+                phone: phone,
+                balance: wallets[phone]
+            }));
+        }
+
+        // 2. Tsarin Biyan Kuɗi ta Maɓallin OPay (A saka shi a nan tare da sauran actions)
+        else if (data.action === 'opay-recharge') {
+            const phone = data.phone;
+            const amount = data.amount;
+            const reference = data.reference;
+
+            if (phone && amount > 0) {
+                wallets[phone] = (wallets[phone] || 0) + Number(amount);
+
+                ws.send(JSON.stringify({
+                    action: 'recharge-success',
+                    message: `An tabbatar da biyan N${amount} ta OPay cikin nasara!`,
+                    newBalance: wallets[phone]
+                }));
+                
+                sendAlertSMS(phone, `An saka N${amount} a wallet ɗinka na Murya Call ta OPay. Sabon balance ɗinka shine N${wallets[phone]}`);
+            } else {
+                ws.send(JSON.stringify({
+                    action: 'error',
+                    message: 'An samu matsala wajen tabbatar da biyan OPay!'
+                }));
+            }
+        }
