@@ -3,14 +3,6 @@
 //     username: 'sandbox',
 // });
 // const sms = AfricasTalking.SMS;
-const AfricasTalking = require('africastalking')({
-    apiKey: 'U5h@eyD3naHgkWR;
-    username: 'sandbox',
-});
-const sms = AfricasTalking.SMS;
-const WebSocket = require('ws');
-const PORT = process.env.PORT || 10000;
-const wss = new WebSocket.Server({ port: PORT });
 
 let users = {};       // Masu amfani da suke kan layi (Online)
 let wallets = {};     // Ma'ajiyar kuɗin kowane mutum (Balance)
