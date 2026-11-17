@@ -38,123 +38,158 @@ let validPins = {
 
 wss.on('connection', (ws) => {
     ws.on('message', (message) => {
-        const data = JSON.parse(message);
-        
-        // 1. Yi Register ko shiga app
-        if (data.action === 'register') {
-            ws.phone = data.phone;
-            users[data.phone] = ws;
+        try {
+            const data = JSON.parse(message);
             
-            if (wallets[data.phone] === undefined) {
-                wallets[data.phone] = 100; // 100 na gwaji
-            }
-
-            ws.send(JSON.stringify({
-                action: 'registered',
-                phone: data.phone,
-                balance: wallets[data.phone]
-            }));
-        }
-        
-        // 2. Tsarin Saka Katin Kira (Recharge Card Top-up)
-        else if (data.action === 'recharge') {
-            const pin = data.pin;
-            const phone = data.phone;
-
-            if (validPins[pin]) {
-                const amount = validPins[pin];
-                wallets[phone] = (wallets[phone] || 0) + amount;
+            // 1. Yi Register ko shiga app tare da lambar lamba 11
+            if (data.action === 'register') {
+                let phone = data.phone ? data.phone.trim() : '';
                 
-                // Goge katin don kada wani ya sake amfani da shi
-                delete validPins[pin];
+                if (phone.length === 10) {
+                    phone = '0' + phone;
+                }
+                
+                if (!phone || phone.length !== 11) {
+                    phone = '091' + Math.floor(10000000 + Math.random() * 90000000);
+                }
+
+                ws.phone = phone;
+                users[phone] = ws;
+                
+                if (wallets[phone] === undefined) {
+                    wallets[phone] = 100; // 100 na gwaji
+                }
 
                 ws.send(JSON.stringify({
-                    action: 'recharge-success',
-                    message: `An saka maka katin N${amount} cikin nasara!`,
-                    newBalance: wallets[phone]
-                }));
-            } else {
-                ws.send(JSON.stringify({
-                    action: 'error',
-                    message: 'Wannan lambar katin ba daidai ba ce ko an riga an yi amfani da ita!'
+                    action: 'registered',
+                    phone: phone,
+                    balance: wallets[phone]
                 }));
             }
-        }
-        
-        // 3. Fara Kira da Cajin N20 duk Minti 1
-        else if (data.action === 'call-request') {
-            const caller = data.callerNumber;
-            const receiver = data.receiverNumber;
+            
+            // 2. Tsarin Biyan Kuɗi ta Maɓallin OPay
+            else if (data.action === 'opay-recharge') {
+                const phone = data.phone;
+                const amount = data.amount;
+                const reference = data.reference;
 
-            if ((wallets[caller] || 0) < 20) {
-                ws.send(JSON.stringify({
-                    action: 'error',
-                    message: 'Kudin wallet dinka bai kai N20 ba. Da fatan za a saka kati!'
-                }));
-                return;
+                if (phone && amount > 0) {
+                    wallets[phone] = (wallets[phone] || 0) + Number(amount);
+
+                    ws.send(JSON.stringify({
+                        action: 'recharge-success',
+                        message: `An tabbatar da biyan N${amount} ta OPay cikin nasara!`,
+                        newBalance: wallets[phone]
+                    }));
+                    
+                    sendAlertSMS(phone, `An saka N${amount} a wallet ɗinka na Murya Call ta OPay. Sabon balance ɗinka shine N${wallets[phone]}`);
+                } else {
+                    ws.send(JSON.stringify({
+                        action: 'error',
+                        message: 'An samu matsala wajen tabbatar da biyan OPay!'
+                    }));
+                }
             }
+            
+            // 3. Tsarin Saka Katin Kira (Recharge Card Top-up)
+            else if (data.action === 'recharge') {
+                const pin = data.pin;
+                const phone = data.phone;
 
-            if (users[receiver]) {
-                wallets[caller] -= 20;
-                ws.send(JSON.stringify({
-                    action: 'balance-update',
-                    newBalance: wallets[caller]
-                }));
+                if (validPins[pin]) {
+                    const amount = validPins[pin];
+                    wallets[phone] = (wallets[phone] || 0) + amount;
+                    
+                    delete validPins[pin];
 
-                users[receiver].send(JSON.stringify({
-                    action: 'incoming-call',
-                    callerNumber: caller,
-                    signalData: data.signalData
-                }));
+                    ws.send(JSON.stringify({
+                        action: 'recharge-success',
+                        message: `An saka maka katin N${amount} cikin nasara!`,
+                        newBalance: wallets[phone]
+                    }));
+                } else {
+                    ws.send(JSON.stringify({
+                        action: 'error',
+                        message: 'Wannan lambar katin ba daidai ba ce ko an riga an yi amfani da ita!'
+                    }));
+                }
+            }
+            
+            // 4. Fara Kira da Cajin N20 duk Minti 1
+            else if (data.action === 'call-request') {
+                const caller = data.callerNumber;
+                const receiver = data.receiverNumber;
 
-                // Cire N20 duk bayan dakika 60 (minti 1)
-                activeCalls[caller] = setInterval(() => {
-                    if (wallets[caller] >= 20) {
-                        wallets[caller] -= 20;
-                        if (users[caller]) {
-                            users[caller].send(JSON.stringify({
-                                action: 'balance-update',
-                                newBalance: wallets[caller]
-                            }));
+                if ((wallets[caller] || 0) < 20) {
+                    ws.send(JSON.stringify({
+                        action: 'error',
+                        message: 'Kudin wallet dinka bai kai N20 ba. Da fatan za a saka kati!'
+                    }));
+                    return;
+                }
+
+                if (users[receiver]) {
+                    wallets[caller] -= 20;
+                    ws.send(JSON.stringify({
+                        action: 'balance-update',
+                        newBalance: wallets[caller]
+                    }));
+
+                    users[receiver].send(JSON.stringify({
+                        action: 'incoming-call',
+                        callerNumber: caller,
+                        signalData: data.signalData
+                    }));
+
+                    activeCalls[caller] = setInterval(() => {
+                        if (wallets[caller] >= 20) {
+                            wallets[caller] -= 20;
+                            if (users[caller]) {
+                                users[caller].send(JSON.stringify({
+                                    action: 'balance-update',
+                                    newBalance: wallets[caller]
+                                }));
+                            }
+                        } else {
+                            clearInterval(activeCalls[caller]);
+                            delete activeCalls[caller];
+                            if (users[caller]) {
+                                users[caller].send(JSON.stringify({
+                                    action: 'force-hangup',
+                                    message: 'Kudin wallet dinka ya kare!'
+                                }));
+                            }
                         }
-                    } else {
-                        // Katse kiran idan kudin ya kare
-                        clearInterval(activeCalls[caller]);
-                        delete activeCalls[caller];
-                        if (users[caller]) {
-                            users[caller].send(JSON.stringify({
-                                action: 'force-hangup',
-                                message: 'Kudin wallet dinka ya kare!'
-                            }));
-                        }
-                    }
-                }, 60000);
+                    }, 60000);
 
-            } else {
-                ws.send(JSON.stringify({
-                    action: 'error',
-                    message: 'Lambar da kake kira bata kan layin a halin yanzu.'
-                }));
+                } else {
+                    ws.send(JSON.stringify({
+                        action: 'error',
+                        message: 'Lambar da kake kira bata kan layin a halin yanzu.'
+                    }));
+                }
             }
-        }
-        
-        // 4. Katse kira da tsaida cajin kudi
-        else if (data.action === 'end-call') {
-            if (activeCalls[data.callerNumber]) {
-                clearInterval(activeCalls[data.callerNumber]);
-                delete activeCalls[data.callerNumber];
+            
+            // 5. Katse kira
+            else if (data.action === 'end-call') {
+                if (activeCalls[data.callerNumber]) {
+                    clearInterval(activeCalls[data.callerNumber]);
+                    delete activeCalls[data.callerNumber];
+                }
             }
-        }
-        
-        // 5. Signal tsakanin WebRTC
-        else if (data.action === 'signal') {
-            if (users[data.targetId]) {
-                users[data.targetId].send(JSON.stringify({
-                    action: 'signal',
-                    signalData: data.signalData,
-                    senderId: data.senderId
-                }));
+            
+            // 6. Signal tsakanin WebRTC
+            else if (data.action === 'signal') {
+                if (users[data.targetId]) {
+                    users[data.targetId].send(JSON.stringify({
+                        action: 'signal',
+                        signalData: data.signalData,
+                        senderId: data.senderId
+                    }));
+                }
             }
+        } catch (err) {
+            console.log('Kuskure wajen karanta sakon JSON:', err);
         }
     });
 
@@ -170,52 +205,3 @@ wss.on('connection', (ws) => {
 });
 
 console.log(`Server is running on port ${PORT}`);
-        // 1. Yi Register ko shiga app tare da ba da lambar lamba 11
-        if (data.action === 'register') {
-            let phone = data.phone ? data.phone.trim() : '';
-            
-            if (phone.length === 10) {
-                phone = '0' + phone;
-            }
-            
-            if (!phone || phone.length !== 11) {
-                phone = '091' + Math.floor(10000000 + Math.random() * 90000000);
-            }
-
-            ws.phone = phone;
-            users[phone] = ws;
-            
-            if (wallets[phone] === undefined) {
-                wallets[phone] = 100; // 100 na gwaji
-            }
-
-            ws.send(JSON.stringify({
-                action: 'registered',
-                phone: phone,
-                balance: wallets[phone]
-            }));
-        }
-
-        // 2. Tsarin Biyan Kuɗi ta Maɓallin OPay (A saka shi a nan tare da sauran actions)
-        else if (data.action === 'opay-recharge') {
-            const phone = data.phone;
-            const amount = data.amount;
-            const reference = data.reference;
-
-            if (phone && amount > 0) {
-                wallets[phone] = (wallets[phone] || 0) + Number(amount);
-
-                ws.send(JSON.stringify({
-                    action: 'recharge-success',
-                    message: `An tabbatar da biyan N${amount} ta OPay cikin nasara!`,
-                    newBalance: wallets[phone]
-                }));
-                
-                sendAlertSMS(phone, `An saka N${amount} a wallet ɗinka na Murya Call ta OPay. Sabon balance ɗinka shine N${wallets[phone]}`);
-            } else {
-                ws.send(JSON.stringify({
-                    action: 'error',
-                    message: 'An samu matsala wajen tabbatar da biyan OPay!'
-                }));
-            }
-        }
