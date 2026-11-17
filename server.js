@@ -1,8 +1,4 @@
-// const AfricasTalking = require('africastalking')({
-//     apiKey: 'U5h@eyD3naHgkWR',
-//     username: 'sandbox',
-// });
-// const sms = AfricasTalking.SMS;
+
 
 let users = {};       // Masu amfani da suke kan layi (Online)
 let wallets = {};     // Ma'ajiyar kuɗin kowane mutum (Balance)
