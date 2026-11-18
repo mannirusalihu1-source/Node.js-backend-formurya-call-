@@ -51,11 +51,15 @@ wss.on('connection', (ws) => {
                     ac[caller] = setInterval(() => {
                         if (w[caller] >= 20) {
                             w[caller] -= 20;
-                            if (u[caller]) u[caller].send(JSON.stringify({ action: 'balance-update', newBalance: w[caller] }));
+                            if (u[caller]) {
+                                u[caller].send(JSON.stringify({ action: 'balance-update', newBalance: w[caller] }));
+                            }
                         } else {
                             clearInterval(ac[caller]);
                             delete ac[caller];
-                            if (u[caller]) u[caller].send(JSON.stringify({ action: 'force-hangup', message: 'Kudin wallet ya kare!' }));
+                            if (u[caller]) {
+                                u[caller].send(JSON.stringify({ action: 'force-hangup', message: 'Kudin wallet ya kare!' }));
+                            }
                         }
                     }, 60000);
                 }
@@ -89,4 +93,3 @@ wss.on('connection', (ws) => {
 });
 
 console.log('Server running on port ' + P);
-
