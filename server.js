@@ -37,7 +37,8 @@ wss.on('connection', (ws) => {
                 ws.send(JSON.stringify({ action: 'registered', phone: phone, balance: wallets[phone] }));
             }
             else if (data.action === 'opay-recharge') {
-                const phone = data.phone, amount = Number(data.amount);
+                const phone = data.phone;
+                const amount = Number(data.amount);
                 if (phone && amount > 0) {
                     wallets[phone] = (wallets[phone] || 0) + amount;
                     ws.send(JSON.stringify({ action: 'recharge-success', message: `An saka N${amount} ta OPay!`, newBalance: wallets[phone] }));
@@ -47,7 +48,8 @@ wss.on('connection', (ws) => {
                 }
             }
             else if (data.action === 'recharge') {
-                const pin = data.pin, phone = data.phone;
+                const pin = data.pin;
+                const phone = data.phone;
                 if (validPins[pin]) {
                     const amount = validPins[pin];
                     wallets[phone] = (wallets[phone] || 0) + amount;
@@ -58,7 +60,8 @@ wss.on('connection', (ws) => {
                 }
             }
             else if (data.action === 'call-request') {
-                const caller = data.callerNumber, receiver = data.receiverNumber;
+                const caller = data.callerNumber;
+                const receiver = data.receiverNumber;
                 if ((wallets[caller] || 0) < 20) {
                     ws.send(JSON.stringify({ action: 'error', message: 'Kudin wallet dinka bai kai N20 ba!' }));
                     return;
@@ -71,11 +74,15 @@ wss.on('connection', (ws) => {
                     activeCalls[caller] = setInterval(() => {
                         if (wallets[caller] >= 20) {
                             wallets[caller] -= 20;
-                            if (users[caller]) users[caller].send(JSON.stringify({ action: 'balance-update', newBalance: wallets[caller] }));
+                            if (users[caller]) {
+                                users[caller].send(JSON.stringify({ action: 'balance-update', newBalance: wallets[caller] }));
+                            }
                         } else {
                             clearInterval(activeCalls[caller]);
                             delete activeCalls[caller];
-                            if (users[caller]) users[caller].send(JSON.stringify({ action: 'force-hangup', message: 'Kudin wallet dinka ya kare!' }));
+                            if (users[caller]) {
+                                users[caller].send(JSON.stringify({ action: 'force-hangup', message: 'Kudin wallet dinka ya kare!' }));
+                            }
                         }
                     }, 60000);
                 } else {
@@ -83,9 +90,10 @@ wss.on('connection', (ws) => {
                 }
             }
             else if (data.action === 'end-call') {
-                if (activeCalls[data.callerNumber]) {
-                    clearInterval(activeCalls[data.callerNumber]);
-                    delete activeCalls[data.callerNumber];
+                const cNum = data.callerNumber;
+                if (cNum && activeCalls[cNum]) {
+                    clearInterval(activeCalls[cNum]);
+                    delete activeCalls[cNum];
                 }
             }
             else if (data.action === 'signal') {
