@@ -59,13 +59,19 @@ wss.on('connection', (ws) => {
                 }
             }
 
-            // Aika sakonni tsakanin masu kira (Signaling)
-            else if (data.action === 'signal') {
-                if (users[data.targetId]) {
-                    users[data.targetId].send(JSON.stringify({
-                        action: 'signal',
-                        signalData: data.signalData,
-                        senderId: data.senderId
+                } else {
+        ws.send(JSON.stringify({ action: 'error', message: 'Wannan lamba bata kan layin yanar gizo a yanzu.' }));
+    }
+
+                // Aika sakonni tsakanin masu kira (Signaling)
+    else if (data.action === 'signal') {
+        if (users[data.targetId]) {
+            users[data.targetId].send(JSON.stringify({
+                action: 'signal',
+                signalData: data.signalData,
+                senderId: data.senderId
+            
+       
                     }));
                 }
             }
