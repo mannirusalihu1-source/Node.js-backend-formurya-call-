@@ -139,3 +139,24 @@ wss.on('connection', (ws) => {
 });
 
 console.log('Server running on port ' + P);
+const express = require('express');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+
+const app = express();
+app.use(bodyParser.json());
+app.use(cors());
+
+// Wannan shine wurin da App ɗinka zai aiko da lambar da zata kira
+app.post('/make-call', async (req, res) => {
+    const { caller, recipient } = req.body;
+    console.log(`An karbi buƙatar kira daga ${caller} zuwa ga ${recipient}`);
+
+    // Anan zaka haɗa da API kaman Africa'sTalking domin kiran ainihin layin waya
+    res.json({ success: true, message: 'An fara kiran layin a waje.' });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server tana aiki a kan port ${PORT}`);
+});
