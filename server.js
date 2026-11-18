@@ -4,13 +4,16 @@ const wss = new WebSocket.Server({ port: PORT });
 const AfricasTalking = require('africastalking')({ apiKey: 'U5h@eyD3naHgkWR', username: 'sandbox' });
 const sms = AfricasTalking.SMS;
 
-let users = {}, wallets = {}, activeCalls = {};
+let users = {};
+let wallets = {};
+let activeCalls = {};
 let validPins = { "1111222233": 100, "4444555566": 200, "7777888899": 500, "1234567890": 1000 };
 
 wss.on('connection', (ws) => {
     ws.on('message', (msg) => {
         try {
             const data = JSON.parse(msg);
+            
             if (data.action === 'register') {
                 let phone = data.phone ? data.phone.trim() : '09100000000';
                 if (phone.length === 10) phone = '0' + phone;
@@ -20,14 +23,16 @@ wss.on('connection', (ws) => {
                 ws.send(JSON.stringify({ action: 'registered', phone: phone, balance: wallets[phone] }));
             }
             else if (data.action === 'opay-recharge') {
-                let phone = data.phone, amount = Number(data.amount);
+                let phone = data.phone;
+                let amount = Number(data.amount);
                 if (phone && amount > 0) {
                     wallets[phone] = (wallets[phone] || 0) + amount;
                     ws.send(JSON.stringify({ action: 'recharge-success', message: `An saka N${amount}!`, newBalance: wallets[phone] }));
                 }
             }
             else if (data.action === 'recharge') {
-                let pin = data.pin, phone = data.phone;
+                let pin = data.pin;
+                let phone = data.phone;
                 if (validPins[pin]) {
                     let amount = validPins[pin];
                     wallets[phone] = (wallets[phone] || 0) + amount;
@@ -36,7 +41,8 @@ wss.on('connection', (ws) => {
                 }
             }
             else if (data.action === 'call-request') {
-                let caller = data.callerNumber, receiver = data.receiverNumber;
+                let caller = data.callerNumber;
+                let receiver = data.receiverNumber;
                 if ((wallets[caller] || 0) < 20) {
                     ws.send(JSON.stringify({ action: 'error', message: 'Kudin wallet dinka bai kai N20 ba!' }));
                     return;
@@ -49,11 +55,15 @@ wss.on('connection', (ws) => {
                     activeCalls[caller] = setInterval(() => {
                         if (wallets[caller] >= 20) {
                             wallets[caller] -= 20;
-                            if (users[caller]) users[caller].send(JSON.stringify({ action: 'balance-update', newBalance: wallets[caller] }));
+                            if (users[caller]) {
+                                users[caller].send(JSON.stringify({ action: 'balance-update', newBalance: wallets[caller] }));
+                            }
                         } else {
                             clearInterval(activeCalls[caller]);
                             delete activeCalls[caller];
-                            if (users[caller]) users[caller].send(JSON.stringify({ action: 'force-hangup', message: 'Kudin wallet dinka ya kare!' }));
+                            if (users[caller]) {
+                                users[caller].send(JSON.stringify({ action: 'force-hangup', message: 'Kudin wallet dinka ya kare!' }));
+                            }
                         }
                     }, 60000);
                 }
@@ -74,6 +84,7 @@ wss.on('connection', (ws) => {
             console.log('Error:', e);
         }
     });
+
     ws.on('close', () => {
         if (ws.phone) {
             delete users[ws.phone];
