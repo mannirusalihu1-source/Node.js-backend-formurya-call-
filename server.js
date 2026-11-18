@@ -17,6 +17,7 @@ wss.on('connection', (ws) => {
     ws.on('message', (msg) => {
         try {
             const data = JSON.parse(msg);
+            
             if (data.action === 'register') {
                 let phone = data.phone ? data.phone.trim() : '';
                 if (phone.length === 10) phone = '0' + phone;
@@ -57,14 +58,19 @@ wss.on('connection', (ws) => {
                     wallets[caller] -= 20;
                     ws.send(JSON.stringify({ action: 'balance-update', newBalance: wallets[caller] }));
                     users[receiver].send(JSON.stringify({ action: 'incoming-call', callerNumber: caller, signalData: data.signalData }));
+                    
                     activeCalls[caller] = setInterval(() => {
                         if (wallets[caller] >= 20) {
                             wallets[caller] -= 20;
-                            if (users[caller]) users[caller].send(JSON.stringify({ action: 'balance-update', newBalance: wallets[caller] }));
+                            if (users[caller]) {
+                                users[caller].send(JSON.stringify({ action: 'balance-update', newBalance: wallets[caller] }));
+                            }
                         } else {
                             clearInterval(activeCalls[caller]);
                             delete activeCalls[caller];
-                            if (users[caller]) users[caller].send(JSON.stringify({ action: 'force-hangup', message: 'Kudin wallet dinka ya kare!' }));
+                            if (users[caller]) {
+                                users[caller].send(JSON.stringify({ action: 'force-hangup', message: 'Kudin wallet dinka ya kare!' }));
+                            }
                         }
                     }, 60000);
                 } else {
@@ -87,6 +93,7 @@ wss.on('connection', (ws) => {
             console.log('JSON Parse error:', e);
         }
     });
+
     ws.on('close', () => {
         if (ws.phone) {
             delete users[ws.phone];
