@@ -1,21 +1,11 @@
 const WS = require('ws');
 const P = process.env.PORT || 10000;
 const wss = new WS.Server({ port: P });
-const AT = require('africastalking')({
-    apiKey: 'U5h@eyD3naHgkWR',
-    username: 'sandbox'
-});
+const AT = require('africastalking')({ apiKey: 'U5h@eyD3naHgkWR', username: 'sandbox' });
 const sms = AT.SMS;
 
-let u = {};
-let w = {};
-let ac = {};
-let pins = {
-    "1111222233": 100,
-    "4444555566": 200,
-    "7777888899": 500,
-    "1234567890": 1000
-};
+let u = {}, w = {}, ac = {};
+let pins = { "1111222233": 100, "4444555566": 200, "7777888899": 500, "1234567890": 1000 };
 
 wss.on('connection', (ws) => {
     ws.on('message', (msg) => {
@@ -32,16 +22,14 @@ wss.on('connection', (ws) => {
                 ws.send(JSON.stringify({ action: 'registered', phone: ph, balance: w[ph] }));
             }
             else if (d.action === 'opay-recharge') {
-                let ph = d.phone;
-                let amt = Number(d.amount);
+                let ph = d.phone, amt = Number(d.amount);
                 if (ph && amt > 0) {
                     w[ph] = (w[ph] || 0) + amt;
                     ws.send(JSON.stringify({ action: 'recharge-success', message: `An saka N${amt}!`, newBalance: w[ph] }));
                 }
             }
             else if (d.action === 'recharge') {
-                let pin = d.pin;
-                let ph = d.phone;
+                let pin = d.pin, ph = d.phone;
                 if (pins[pin]) {
                     let amt = pins[pin];
                     w[ph] = (w[ph] || 0) + amt;
@@ -50,8 +38,7 @@ wss.on('connection', (ws) => {
                 }
             }
             else if (d.action === 'call-request') {
-                let caller = d.callerNumber;
-                let recv = d.receiverNumber;
+                let caller = d.callerNumber, recv = d.receiverNumber;
                 if ((w[caller] || 0) < 20) {
                     ws.send(JSON.stringify({ action: 'error', message: 'Kudin wallet bai kai N20 ba!' }));
                     return;
@@ -59,21 +46,16 @@ wss.on('connection', (ws) => {
                 if (u[recv]) {
                     w[caller] -= 20;
                     ws.send(JSON.stringify({ action: 'balance-update', newBalance: w[caller] }));
-                    
                     u[recv].send(JSON.stringify({ action: 'incoming-call', callerNumber: caller, signalData: d.signalData }));
                     
                     ac[caller] = setInterval(() => {
                         if (w[caller] >= 20) {
                             w[caller] -= 20;
-                            if (u[caller]) {
-                                u[caller].send(JSON.stringify({ action: 'balance-update', newBalance: w[caller] }));
-                            }
+                            if (u[caller]) u[caller].send(JSON.stringify({ action: 'balance-update', newBalance: w[caller] }));
                         } else {
                             clearInterval(ac[caller]);
                             delete ac[caller];
-                            if (u[caller]) {
-                                u[caller].send(JSON.stringify({ action: 'force-hangup', message: 'Kudin wallet ya kare!' }));
-                            }
+                            if (u[caller]) u[caller].send(JSON.stringify({ action: 'force-hangup', message: 'Kudin wallet ya kare!' }));
                         }
                     }, 60000);
                 }
@@ -107,3 +89,4 @@ wss.on('connection', (ws) => {
 });
 
 console.log('Server running on port ' + P);
+
