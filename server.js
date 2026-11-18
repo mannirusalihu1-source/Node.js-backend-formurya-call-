@@ -1,145 +1,7 @@
-const WS = require('ws');
-const P = process.env.PORT || 10000;
-const wss = new WS.Server({ port: P });
-const AT = require('africastalking')({
-  apiKey: 'U5h@eyD3naHgkWR',
-  username: 'sandbox'
-});
-const sms = AT.SMS;
 
-let u = {};
-let w = {};
-let ac = {};
-let pins = {
-  "1111222233": 100,
-  "4444555566": 200,
-  "7777888899": 500,
-  "1234567890": 1000
-};
-
-wss.on('connection', (ws) => {
-  ws.on('message', (msg) => {
-    try {
-      const d = JSON.parse(msg);
-      
-      if (d.action === 'register') {
-        let ph = d.phone ? d.phone.trim() : '07060838340';
-        if (ph.length === 10) ph = '0' + ph;
-        if (ph.length === 9) ph = '070' + ph;
-        if (ph.length < 11) ph = ph.padEnd(11, '0');
-        ws.phone = ph;
-        w[ph] = w[ph] || 100;
-        ws.send(JSON.stringify({
-          action: 'registered',
-          phone: ph,
-          balance: w[ph]
-        }));
-      }
-      else if (d.action === 'opay-recharge') {
-        let ph = d.phone;
-        let amt = Number(d.amount);
-        if (ph && amt > 0) {
-          w[ph] = (w[ph] || 0) + amt;
-          ws.send(JSON.stringify({
-            action: 'recharge-success',
-            message: 'An saka kuɗi!',
-            newBalance: w[ph]
-          }));
-        }
-      }
-      else if (d.action === 'recharge') {
-        let pin = d.pin;
-        let ph = d.phone;
-        if (pins[pin]) {
-          let amt = pins[pin];
-          w[ph] = (w[ph] || 0) + amt;
-          delete pins[pin];
-          ws.send(JSON.stringify({
-            action: 'recharge-success',
-            message: 'An saka PIN!',
-            newBalance: w[ph]
-          }));
-        }
-      }
-      else if (d.action === 'call-request') {
-        let caller = d.callerNumber;
-        let recv = d.receiverNumber;
-        if ((w[caller] || 0) < 20) {
-          ws.send(JSON.stringify({
-            action: 'error',
-            message: 'Kuɗi sun ƙare'
-          }));
-          return;
-        }
-        if (u[recv]) {
-          w[caller] -= 20;
-          ws.send(JSON.stringify({
-            action: 'balance-update',
-            newBalance: w[caller]
-          }));
-          
-          u[recv].send(JSON.stringify({
-            action: 'incoming-call',
-            callerNumber: caller,
-            signalData: d.signalData
-          }));
-          
-          ac[caller] = setInterval(() => {
-            if (w[caller] >= 20) {
-              w[caller] -= 20;
-              if (u[caller]) {
-                u[caller].send(JSON.stringify({
-                  action: 'balance-update',
-                  newBalance: w[caller]
-                }));
-              }
-            } else {
-              clearInterval(ac[caller]);
-              delete ac[caller];
-              if (u[caller]) {
-                u[caller].send(JSON.stringify({
-                  action: 'force-hangup',
-                  message: 'Kuɗi sun ƙare'
-                }));
-              }
-            }
-          }, 60000);
-        }
-      }
-      else if (d.action === 'end-call') {
-        let cNum = d.callerNumber;
-        if (cNum && ac[cNum]) {
-          clearInterval(ac[cNum]);
-          delete ac[cNum];
-        }
-      }
-      else if (d.action === 'signal') {
-        if (u[d.targetId]) {
-          u[d.targetId].send(JSON.stringify({
-            action: 'signal',
-            signalData: d.signalData,
-            senderId: d.senderId
-          }));
-        }
-      }
-    } catch (e) {
-      console.log('Err:', e);
-    }
-  });
-
-  ws.on('close', () => {
-    if (ws.phone) {
-      delete u[ws.phone];
-      if (ac[ws.phone]) {
-        clearInterval(ac[ws.phone]);
-        delete ac[ws.phone];
-      }
-    }
-  });
-});
-
-console.log('Server running on port ' + P);
-});const express = require('express');
+const express = require('express');
+const http = require('http');
+const { Server } = require('ws');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 
@@ -147,16 +9,86 @@ const app = express();
 app.use(bodyParser.json());
 app.use(cors());
 
-// Wannan shine wurin da App ɗinka zai aiko da lambar da zata kira
+const server = http.createServer(app);
+const wss = new Server({ server });
+
+let users = {}; // Ajiye mai amfani da WebSocket ɗinsa
+let wallets = { "07060838340": 100 }; // Ajiyar kuɗin wallet
+
+wss.on('connection', (ws) => {
+    ws.on('message', (msg) => {
+        try {
+            const data = JSON.parse(msg);
+
+            // Lokacin da mai amfani ya shiga app
+            if (data.action === 'register') {
+                let ph = data.phone ? data.phone.trim() : '07060838340';
+                ws.phone = ph;
+                users[ph] = ws; // Anan muka adana lambar mai amfani daidai!
+                wallets[ph] = wallets[ph] || 100;
+
+                ws.send(JSON.stringify({
+                    action: 'registered',
+                    phone: ph,
+                    balance: wallets[ph]
+                }));
+            }
+
+            // Lokacin da aka tura buƙatar kira
+            else if (data.action === 'call-request') {
+                let caller = data.callerNumber;
+                let recv = data.receiverNumber;
+
+                if ((wallets[caller] || 0) < 20) {
+                    ws.send(JSON.stringify({ action: 'error', message: 'Kuɗi sun kare a wallet dinka.' }));
+                    return;
+                }
+
+                if (users[recv]) {
+                    wallets[caller] -= 20;
+                    ws.send(JSON.stringify({ action: 'balance-update', newBalance: wallets[caller] }));
+
+                    // Sanar da wanda ake kira cewa ana kiransa
+                    users[recv].send(JSON.stringify({
+                        action: 'incoming_call',
+                        callerNumber: caller,
+                        signalData: data.signalData
+                    }));
+                } else {
+                    ws.send(JSON.stringify({ action: 'error', message: 'Wannan lamba bata kan layin yanar gizo a yanzu.' }));
+                }
+            }
+
+            // Aika sakonni tsakanin masu kira (Signaling)
+            else if (data.action === 'signal') {
+                if (users[data.targetId]) {
+                    users[data.targetId].send(JSON.stringify({
+                        action: 'signal',
+                        signalData: data.signalData,
+                        senderId: data.senderId
+                    }));
+                }
+            }
+        } catch (e) {
+            console.log('Kuskure:', e);
+        }
+    });
+
+    ws.on('close', () => {
+        if (ws.phone) {
+            delete users[ws.phone];
+        }
+    });
+});
+
+// Express POST API don ainihin kiran waje (Idan kana son haɗawa da AfricasTalking nan gaba)
 app.post('/make-call', async (req, res) => {
     const { caller, recipient } = req.body;
     console.log(`An karbi buƙatar kira daga ${caller} zuwa ga ${recipient}`);
-
-    // Anan zaka haɗa da API kaman Africa'sTalking domin kiran ainihin layin waya
     res.json({ success: true, message: 'An fara kiran layin a waje.' });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+const PORT = process.env.PORT || 10000;
+server.listen(PORT, () => {
     console.log(`Server tana aiki a kan port ${PORT}`);
 });
