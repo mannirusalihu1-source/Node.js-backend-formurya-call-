@@ -1,15 +1,12 @@
 {
-  "name": "murya-call-backend",
+  "name": "murya-call",
   "version": "1.0.0",
-  "description": "Node.js backend for Murya Call",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.19.2",
     "ws": "^8.16.0",
-    "axios": "^1.6.0",
     "africastalking": "^0.5.2"
   }
 }
