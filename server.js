@@ -41,48 +41,48 @@ wss.on('connection', (ws) => {
           balance: wallets[ph]
         }));
       }
+else if (data.action === 'make_call' || data.action === 'call') {
+  const caller = data.caller || data.from || ws.phone || '07060838340';
+  const targetNum = data.target || data.to;
 
-      // Lokacin da aka tura bukatar kira ta GSM (daga startCall)
-      else if (data.action === 'make_call') {
-        const caller = data.caller || ws.phone || '07060838340';
-        const targetNum = data.target;
+  if (!targetNum) {
+    ws.send(JSON.stringify({ action: 'error', message: 'Babu lambar da za a kira.' }));
+    return;
+  }
 
-        if (!targetNum) {
-          ws.send(JSON.stringify({ action: 'error', message: 'Babu lambar da za a kira.' }));
-          return;
-        }
+  if ((wallets[caller] || 0) < 20) {
+    ws.send(JSON.stringify({ action: 'error', message: 'Kudi sun kare a wallet dinka.' }));
+    return;
+  }
 
-        if ((wallets[caller] || 0) < 20) {
-          ws.send(JSON.stringify({ action: 'error', message: 'Kudi sun kare a wallet dinka.' }));
-          return;
-        }
+  if (!client || !twilioPhone) {
+    ws.send(JSON.stringify({
+      action: 'error',
+      message: 'Ba a saita TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, ko TWILIO_PHONE_NUMBER a Render ba.'
+    }));
+    return;
+  }
 
-        if (!client || !twilioPhone) {
-          ws.send(JSON.stringify({
-            action: 'error',
-            message: 'Ba a saita TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, ko TWILIO_PHONE_NUMBER a Render ba.'
-          }));
-          return;
-        }
+  const call = await client.calls.create({
+    to: targetNum,
+    from: twilioPhone,
+    twiml: '<Response><Say voice="alice">Sannu, wannan kira ne daga Murya Call.</Say></Response>'
+  });
 
-        const call = await client.calls.create({
-          to: targetNum,
-          from: twilioPhone,
-          twiml: '<Response><Say voice="alice">Sannu, wannan kira ne daga Murya Call.</Say></Response>'
-        });
+  wallets[caller] -= 20;
+  ws.send(JSON.stringify({
+    action: 'balance-update',
+    newBalance: wallets[caller]
+  }));
 
-        wallets[caller] -= 20;
-        ws.send(JSON.stringify({
-          action: 'balance-update',
-          newBalance: wallets[caller]
-        }));
+  ws.send(JSON.stringify({
+    action: 'call_initiated',
+    callSid: call.sid,
+    to: targetNum
+  }));
+}
 
-        ws.send(JSON.stringify({
-          action: 'call_initiated',
-          callSid: call.sid,
-          to: targetNum
-        }));
-      }
+      
 
       // Lokacin da aka tura bukatar kira ta cikin app (WebRTC)
       else if (data.action === 'call-request') {
