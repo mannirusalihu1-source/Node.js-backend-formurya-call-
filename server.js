@@ -12,14 +12,29 @@ app.use(cors());
 const server = http.createServer(app);
 const wss = new Server({ server });
 
-// Haɗin Twilio daga Environment Variables na Render
+// Hadin Twilio daga Environment Variables na Render
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
+const twimlUrl = process.env.TWIML_URL;
 const client = (accountSid && authToken) ? twilio(accountSid, authToken) : null;
 
 let users = {}; // Ajiye mai amfani da WebSocket dinsa
-let wallets = { "07060838340": 100 }; // Ajiyar kudin wallet
+let wallets = { "07060838340": 100 };
+// Ajiyar kudin wallet
+
+function buildCallPayload(toNumber) {
+  const payload = {
+    to: toNumber,
+    from: twilioPhone
+  };
+  if (twimlUrl) {
+    payload.url = twimlUrl;
+  } else {
+    payload.twiml = '<Response><Say voice="alice">Sannu, wannan kira ne daga Murya Call.</Say></Response>';
+  }
+  return payload;
+}
 
 wss.on('connection', (ws) => {
   ws.on('message', async (msg) => {
@@ -40,49 +55,42 @@ wss.on('connection', (ws) => {
           phone: ph,
           balance: wallets[ph]
         }));
+      } else if (data.action === 'make_call' || data.action === 'call') {
+        const caller = data.caller || data.from || ws.phone || '07060838340';
+        const targetNum = data.target || data.to;
+
+        if (!targetNum) {
+          ws.send(JSON.stringify({ action: 'error', message: 'Babu lambar da za a kira.' }));
+          return;
+        }
+
+        if ((wallets[caller] || 0) < 20) {
+          ws.send(JSON.stringify({ action: 'error', message: 'Kudi sun kare a wallet dinka.' }));
+          return;
+        }
+
+        if (!client || !twilioPhone) {
+          ws.send(JSON.stringify({
+            action: 'error',
+            message: 'Ba a saita TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, ko TWILIO_PHONE_NUMBER a Render ba.'
+          }));
+          return;
+        }
+
+        const call = await client.calls.create(buildCallPayload(targetNum));
+
+        wallets[caller] -= 20;
+        ws.send(JSON.stringify({
+          action: 'balance-update',
+          newBalance: wallets[caller]
+        }));
+
+        ws.send(JSON.stringify({
+          action: 'call_initiated',
+          callSid: call.sid,
+          to: targetNum
+        }));
       }
-else if (data.action === 'make_call' || data.action === 'call') {
-  const caller = data.caller || data.from || ws.phone || '07060838340';
-  const targetNum = data.target || data.to;
-
-  if (!targetNum) {
-    ws.send(JSON.stringify({ action: 'error', message: 'Babu lambar da za a kira.' }));
-    return;
-  }
-
-  if ((wallets[caller] || 0) < 20) {
-    ws.send(JSON.stringify({ action: 'error', message: 'Kudi sun kare a wallet dinka.' }));
-    return;
-  }
-
-  if (!client || !twilioPhone) {
-    ws.send(JSON.stringify({
-      action: 'error',
-      message: 'Ba a saita TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, ko TWILIO_PHONE_NUMBER a Render ba.'
-    }));
-    return;
-  }
-
-  const call = await client.calls.create({
-    to: targetNum,
-    from: twilioPhone,
-    twiml: '<Response><Say voice="alice">Sannu, wannan kira ne daga Murya Call.</Say></Response>'
-  });
-
-  wallets[caller] -= 20;
-  ws.send(JSON.stringify({
-    action: 'balance-update',
-    newBalance: wallets[caller]
-  }));
-
-  ws.send(JSON.stringify({
-    action: 'call_initiated',
-    callSid: call.sid,
-    to: targetNum
-  }));
-}
-
-      
 
       // Lokacin da aka tura bukatar kira ta cikin app (WebRTC)
       else if (data.action === 'call-request') {
@@ -139,14 +147,13 @@ app.post('/make-call', async (req, res) => {
 
   try {
     if (!client || !twilioPhone || !recipient) {
-      return res.status(400).json({ success: false, message: 'Babu isassun bayanan Twilio ko lambar mai karba.' });
+      return res.status(400).json({
+        success: false,
+        message: 'Babu isassun bayanan Twilio ko lambar mai karba.'
+      });
     }
 
-    const call = await client.calls.create({
-      to: recipient,
-      from: twilioPhone,
-      twiml: '<Response><Say voice="alice">Sannu, wannan kira ne daga Murya Call.</Say></Response>'
-    });
+    const call = await client.calls.create(buildCallPayload(recipient));
 
     res.json({
       success: true,
