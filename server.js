@@ -22,6 +22,55 @@ const client = (accountSid && authToken) ? twilio(accountSid, authToken) : null;
 let users = {}; // Ajiye mai amfani da WebSocket dinsa
 let wallets = { "07060838340": 100 };
 // Ajiyar kudin wallet
+// Hadin Africa's Talking daga Environment Variables na Render
+const callProvider = (process.env.CALL_PROVIDER || 'twilio').toLowerCase();
+const atUsername = process.env.AT_USERNAME;
+const atApiKey = process.env.AT_API_KEY;
+const atCallerId = process.env.AT_CALLER_ID;
+
+function normalizePhoneE164(num) {
+  const clean = String(num || '').trim().replace(/\s+/g, '');
+  if (clean.startsWith('+')) return clean;
+  if (clean.startsWith('234')) return '+' + clean;
+  if (clean.startsWith('0')) return '+234' + clean.slice(1);
+  return '+234' + clean;
+}
+
+async function placeAfricaTalkingCall(toNumber) {
+  if (!atUsername || !atApiKey) {
+    throw new Error('Ba a saita AT_USERNAME ko AT_API_KEY a Render ba.');
+  }
+
+  const isSandbox = atUsername === 'sandbox';
+  const endpoint = isSandbox
+    ? 'https://api.sandbox.africastalking.com/version1/call'
+    : 'https://api.africastalking.com/version1/call';
+
+  const params = new URLSearchParams({
+    username: atUsername,
+    to: normalizePhoneE164(toNumber)
+  });
+
+  if (atCallerId) {
+    params.append('from', normalizePhoneE164(atCallerId));
+  }
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'apiKey': atApiKey,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Accept': 'application/json'
+    },
+    body: params.toString()
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.errorMessage || JSON.stringify(data));
+  }
+  return data;
+}
 
 function buildCallPayload(toNumber) {
   const payload = {
