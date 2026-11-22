@@ -166,10 +166,9 @@ if (callProvider === 'africas_talking') {
           }));
         }
       }
-    } catch (e) {
-      console.log('Kuskure:', e);
-      ws.send(JSON.stringify({ action: 'error', message: e.message || 'Kuskure a sabar.' }));
+     }));
     }
+
   });
 
   ws.on('close', () => {
