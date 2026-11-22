@@ -170,6 +170,9 @@ if (callProvider === 'africas_talking') {
     }
 
   });
+} catch (e) {
+  console.log('Kuskure:', e);
+}
 
   ws.on('close', () => {
     if (ws.phone) {
