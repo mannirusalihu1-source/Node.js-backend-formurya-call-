@@ -166,7 +166,7 @@ if (callProvider === 'africas_talking') {
           }));
         }
       }
-     }));
+     
     }
 
   });
