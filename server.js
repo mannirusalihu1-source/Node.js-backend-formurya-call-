@@ -117,6 +117,23 @@ wss.on('connection', (ws) => {
           ws.send(JSON.stringify({ action: 'error', message: 'Kudi sun kare a wallet dinka.' }));
           return;
         }
+if (callProvider === 'africas_talking') {
+  const atResult = await placeAfricaTalkingCall(targetNum);
+
+  wallets[caller] -= 20;
+  ws.send(JSON.stringify({
+    action: 'balance-update',
+    newBalance: wallets[caller]
+  }));
+
+  ws.send(JSON.stringify({
+    action: 'call_initiated',
+    provider: 'africas_talking',
+    data: atResult,
+    to: targetNum
+  }));
+  return;
+}
 
         if (!client || !twilioPhone) {
           ws.send(JSON.stringify({
