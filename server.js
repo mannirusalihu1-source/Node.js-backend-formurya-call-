@@ -62,6 +62,14 @@ async function placeAfricaTalkingCall(toNumber) {
     body: params.toString()
   });
 
+const rawText = await response.text();
+if (!response.ok) {
+  console.error('AT Error:', response.status, rawText);
+  throw new Error(`Africa's Talking (${response.status}): ${rawText}`);
+}
+
+
+
   const rawText = await response.text();
   let data = {};
   try {
@@ -73,7 +81,7 @@ async function placeAfricaTalkingCall(toNumber) {
   if (!response.ok) {
     throw new Error(data.errorMessage || data.message || rawText || `HTTP ${response.status}`);
   }
-  return data;
+  return data;}
 }
 
 wss.on('connection', (ws) => {
