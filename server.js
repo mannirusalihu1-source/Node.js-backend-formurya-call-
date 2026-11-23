@@ -9,19 +9,19 @@ app.use(bodyParser.json());
 app.use(cors());
 
 const server = http.createServer(app);
-
-
+const wss = new Server({ server });
 
 let users = {}; // Ajiye mai amfani da WebSocket dinsa
-let wallets = { "07060838340": 100 };
-// Ajiyar kudin wallet
-// Hadin Africa's Talking daga Environment 
+let wallets = { "07060838340": 100 }; // Ajiyar kudin wallet
+
+// Hadin Africa's Talking daga Environment
 const atUsername = process.env.AT_USERNAME;
 const atApiKey = process.env.AT_API_KEY;
 const atCallerId = process.env.AT_CALLER_ID;
 
 function normalizePhoneE164(num) {
   const clean = String(num || '').trim().replace(/\s+/g, '');
+  if (!clean) return '';
   if (clean.startsWith('+')) return clean;
   if (clean.startsWith('234')) return '+' + clean;
   if (clean.startsWith('0')) return '+234' + clean.slice(1);
@@ -30,7 +30,12 @@ function normalizePhoneE164(num) {
 
 async function placeAfricaTalkingCall(toNumber) {
   if (!atUsername || !atApiKey) {
-    throw new Error('Ba a saita AT_USERNAME ko AT_API_KEY a Render ba.');
+    throw new Error("Ba a saita AT_USERNAME ko AT_API_KEY a Render ba.");
+  }
+
+  const normalizedTo = normalizePhoneE164(toNumber);
+  if (!normalizedTo) {
+    throw new Error("Babu lambar waya mai inganci.");
   }
 
   const isSandbox = atUsername === 'sandbox';
@@ -40,7 +45,7 @@ async function placeAfricaTalkingCall(toNumber) {
 
   const params = new URLSearchParams({
     username: atUsername,
-    to: normalizePhoneE164(toNumber)
+    to: normalizedTo
   });
 
   if (atCallerId) {
@@ -64,19 +69,6 @@ async function placeAfricaTalkingCall(toNumber) {
   return data;
 }
 
-function buildCallPayload(toNumber) {
-  const payload = {
-    to: toNumber,
-    from: twilioPhone
-  };
-  if (twimlUrl) {
-    payload.url = twimlUrl;
-  } else {
-    payload.twiml = '<Response><Say voice="alice">Sannu, wannan kira ne daga Murya Call.</Say></Response>';
-  }
-  return payload;
-}
-
 wss.on('connection', (ws) => {
   ws.on('message', async (msg) => {
     try {
@@ -89,7 +81,7 @@ wss.on('connection', (ws) => {
         users[ph] = ws;
 
         // Anan muka adana lambar mai amfani daidai!
-        wallets[ph] = wallets[ph] || 100;
+        wallets[ph] = wallets[ph] !== undefined ? wallets[ph] : 100;
 
         ws.send(JSON.stringify({
           action: 'registered',
@@ -109,30 +101,31 @@ wss.on('connection', (ws) => {
           ws.send(JSON.stringify({ action: 'error', message: 'Kudi sun kare a wallet dinka.' }));
           return;
         }
-if (callProvider === 'africas_talking') {
-  const atResult = await placeAfricaTalkingCall(targetNum);
 
-  wallets[caller] -= 20;
-  ws.send(JSON.stringify({
-    action: 'balance-update',
-    newBalance: wallets[caller]
-  }));
+        try {
+          const atResult = await placeAfricaTalkingCall(targetNum);
+          wallets[caller] = Math.max(0, (wallets[caller] || 0) - 20);
 
-  ws.send(JSON.stringify({
-    action: 'call_initiated',
-    provider: 'africas_talking',
-    data: atResult,
-    to: targetNum
-  }));
-  return;
-}
+          ws.send(JSON.stringify({
+            action: 'balance-update',
+            newBalance: wallets[caller]
+          }));
 
-        
-   
-       
-
-      // Lokacin da aka tura bukatar kira ta cikin app (WebRTC)
-      else if (data.action === 'call-request') {
+          ws.send(JSON.stringify({
+            action: 'call_initiated',
+            provider: 'africas_talking',
+            data: atResult,
+            to: targetNum
+          }));
+        } catch (err) {
+          console.log("Kuskuren Africa's Talking (WS):", err.message);
+          ws.send(JSON.stringify({
+            action: 'error',
+            message: err.message || "An samu kuskure wajen fara kira."
+          }));
+        }
+        return;
+      } else if (data.action === 'call-request') {
         let caller = data.callerNumber;
         let recv = data.receiverNumber;
 
@@ -142,8 +135,11 @@ if (callProvider === 'africas_talking') {
         }
 
         if (users[recv]) {
-          wallets[caller] -= 20;
-          ws.send(JSON.stringify({ action: 'balance-update', newBalance: wallets[caller] }));
+          wallets[caller] = Math.max(0, (wallets[caller] || 0) - 20);
+          ws.send(JSON.stringify({
+            action: 'balance-update',
+            newBalance: wallets[caller]
+          }));
 
           // Sanar da wanda ake kira cewa ana kiransa
           users[recv].send(JSON.stringify({
@@ -152,13 +148,13 @@ if (callProvider === 'africas_talking') {
             signalData: data.signalData
           }));
         } else {
-          ws.send(JSON.stringify({ action: 'error', message: 'Wannan lamba bata kan layin yanar gizo a yanzu.' }));
+          ws.send(JSON.stringify({
+            action: 'error',
+            message: 'Wannan lamba bata kan layin yanar gizo a yanzu.'
+          }));
         }
-      }
-      }
-
-      // Aika sakonni tsakanin masu kira (Signaling)
-      else if (data.action === 'signal') {
+      } else if (data.action === 'signal') {
+        // Aika sakonni tsakanin masu kira (Signaling)
         if (users[data.targetId]) {
           users[data.targetId].send(JSON.stringify({
             action: 'signal',
@@ -179,36 +175,40 @@ if (callProvider === 'africas_talking') {
   });
 });
 
-      
-
 // Express POST API don ainihin kiran waje
 app.post('/make-call', async (req, res) => {
   const { caller, recipient } = req.body;
   console.log(`An karbi bukatar kira daga ${caller} zuwa ga ${recipient}`);
-    try {
-      if (!recipient) {
-        return res.status(400).json({
-          success: false,
-          message: 'Babu lambar mai karba.'
-        });
-      }
-
-      const result = await placeAfricaTalkingCall({ caller, recipient });
-
-      res.json({
-        success: true,
-        message: 'An fara kiran layin a waje.',
-        callData: result
+  try {
+    if (!recipient) {
+      return res.status(400).json({
+        success: false,
+        message: 'Babu lambar mai karba.'
       });
     }
 
-      } catch (error) {
-        console.log('Kuskuren kira:', error);
-        res.status(500).json({
-          success: false,
-          message: "An samu kuskure wajen fara kiran Africa's Talking."
-        });
-      }
-    });
+    const result = await placeAfricaTalkingCall(recipient);
 
-    
+    res.json({
+      success: true,
+      message: 'An fara kiran layin a waje.',
+      callData: result
+    });
+  } catch (error) {
+    console.log('Kuskuren kira:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "An samu kuskure wajen fara kiran Africa's Talking."
+    });
+  }
+});
+
+app.get('/', (req, res) => {
+  res.send("Murya Call Backend na aiki da Africa's Talking.");
+});
+
+const PORT = process.env.PORT || 10000;
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
