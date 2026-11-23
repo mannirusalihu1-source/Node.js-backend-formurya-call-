@@ -185,28 +185,30 @@ if (callProvider === 'africas_talking') {
 app.post('/make-call', async (req, res) => {
   const { caller, recipient } = req.body;
   console.log(`An karbi bukatar kira daga ${caller} zuwa ga ${recipient}`);
+    try {
+      if (!recipient) {
+        return res.status(400).json({
+          success: false,
+          message: 'Babu lambar mai karba.'
+        });
+      }
 
-  try {
-    if (!client || !twilioPhone || !recipient) {
-      return res.status(400).json({
-        success: false,
-        message: 'Babu isassun bayanan Twilio ko lambar mai karba.'
+      const result = await placeAfricaTalkingCall({ caller, recipient });
+
+      res.json({
+        success: true,
+        message: 'An fara kiran layin a waje.',
+        callData: result
       });
     }
 
-    const call = await client.calls.create(buildCallPayload(recipient));
-
-    res.json({
-      success: true,
-      message: 'An fara kiran layin a waje.',
-      callSid: call.sid
+  catch (error) {
+    console.log('Kuskuren kira:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An samu kuskure wajen fara kiran Africa\'s Talking.'
     });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
   }
 });
 
-const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+    
