@@ -155,6 +155,7 @@ if (callProvider === 'africas_talking') {
           ws.send(JSON.stringify({ action: 'error', message: 'Wannan lamba bata kan layin yanar gizo a yanzu.' }));
         }
       }
+      }
 
       // Aika sakonni tsakanin masu kira (Signaling)
       else if (data.action === 'signal') {
@@ -166,13 +167,10 @@ if (callProvider === 'africas_talking') {
           }));
         }
       }
-     
+    } catch (e) {
+      console.log('Kuskure:', e);
     }
-
   });
-} catch (e) {
-  console.log('Kuskure:', e);
-}
 
   ws.on('close', () => {
     if (ws.phone) {
@@ -180,6 +178,8 @@ if (callProvider === 'africas_talking') {
     }
   });
 });
+
+      
 
 // Express POST API don ainihin kiran waje
 app.post('/make-call', async (req, res) => {
@@ -202,13 +202,13 @@ app.post('/make-call', async (req, res) => {
       });
     }
 
-  catch (error) {
-    console.log('Kuskuren kira:', error);
-    res.status(500).json({
-      success: false,
-      message: 'An samu kuskure wajen fara kiran Africa\'s Talking.'
+      } catch (error) {
+        console.log('Kuskuren kira:', error);
+        res.status(500).json({
+          success: false,
+          message: "An samu kuskure wajen fara kiran Africa's Talking."
+        });
+      }
     });
-  }
-});
 
     
