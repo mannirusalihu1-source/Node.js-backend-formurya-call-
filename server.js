@@ -62,9 +62,16 @@ async function placeAfricaTalkingCall(toNumber) {
     body: params.toString()
   });
 
-  const data = await response.json();
+  const rawText = await response.text();
+  let data = {};
+  try {
+    data = rawText ? JSON.parse(rawText) : {};
+  } catch (_) {
+    data = { raw: rawText };
+  }
+
   if (!response.ok) {
-    throw new Error(data.errorMessage || JSON.stringify(data));
+    throw new Error(data.errorMessage || data.message || rawText || `HTTP ${response.status}`);
   }
   return data;
 }
