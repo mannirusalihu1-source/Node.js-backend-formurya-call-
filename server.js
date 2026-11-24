@@ -40,8 +40,8 @@ async function placeAfricaTalkingCall(toNumber) {
 
   const isSandbox = atUsername === 'sandbox';
   const endpoint = isSandbox
-    ? 'https://api.sandbox.africastalking.com/version1/call'
-    : 'https://api.africastalking.com/version1/call';
+    ? 'https://voice.sandbox.africastalking.com/call'
+    : 'https://voice.africastalking.com/call';
 
   const params = new URLSearchParams({
     username: atUsername,
@@ -62,14 +62,15 @@ async function placeAfricaTalkingCall(toNumber) {
     body: params.toString()
   });
 
-const rawText = await response.text();console.log('AT DEBUG:', { endpoint, status: response.status, rawText });
+  const rawText = await response.text();
+  console.log('AT DEBUG:', { endpoint, status: response.status, rawText });
 
-if (!response.ok) {
-  console.error('AT Error:', response.status, rawText);
-  throw new Error(`Africa's Talking (${response.status}): ${rawText}`);
-}
-   
-  try{
+  if (!response.ok) {
+    console.error('AT Error:', response.status, rawText);
+    throw new Error(`Africa's Talking (${response.status}): ${rawText}`);
+  }
+
+  try {
     return rawText ? JSON.parse(rawText) : {};
   } catch (_) {
     return { raw: rawText };
@@ -80,9 +81,6 @@ wss.on('connection', (ws) => {
   ws.on('message', async (msg) => {
     try {
       const data = JSON.parse(msg);
-
-
-  
 
       // Lokacin da mai amfani ya shiga app
       if (data.action === 'register') {
@@ -198,7 +196,6 @@ app.post('/make-call', async (req, res) => {
     }
 
     const result = await placeAfricaTalkingCall(recipient);
-
     res.json({
       success: true,
       message: 'An fara kiran layin a waje.',
