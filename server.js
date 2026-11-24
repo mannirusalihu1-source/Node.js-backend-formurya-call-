@@ -63,7 +63,8 @@ async function placeAfricaTalkingCall(toNumber) {
   });
 
   const rawText = await response.text();
-  console.log('AT DEBUG:', { endpoint, status: response.status, rawText });
+  console.log('AT DEBUG:', { endpoint, status: response.status, rawText }); console.log('AT DEBUG:', { endpoint, params: params.toString(), status: response.status, rawText });
+
 
   if (!response.ok) {
     console.error('AT Error:', response.status, rawText);
