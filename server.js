@@ -1,3 +1,4 @@
+
 const express = require('express');
 const http = require('http');
 const { Server } = require('ws');
@@ -38,6 +39,11 @@ async function placeAfricaTalkingCall(toNumber) {
     throw new Error("Babu lambar waya mai inganci.");
   }
 
+  const normalizedFrom = normalizePhoneE164(atCallerId);
+  if (!normalizedFrom) {
+    throw new Error("Ba a saita AT_CALLER_ID a Render ba.");
+  }
+
   const isSandbox = atUsername === 'sandbox';
   const endpoint = isSandbox
     ? 'https://voice.sandbox.africastalking.com/call'
@@ -45,12 +51,9 @@ async function placeAfricaTalkingCall(toNumber) {
 
   const params = new URLSearchParams({
     username: atUsername,
+    from: normalizedFrom,
     to: normalizedTo
   });
-
-  if (atCallerId) {
-    params.append('from', normalizePhoneE164(atCallerId));
-  }
 
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -63,8 +66,12 @@ async function placeAfricaTalkingCall(toNumber) {
   });
 
   const rawText = await response.text();
-  console.log('AT DEBUG:', { endpoint, status: response.status, rawText }); console.log('AT DEBUG:', { endpoint, params: params.toString(), status: response.status, rawText });
-
+  console.log('AT DEBUG:', {
+    endpoint,
+    params: params.toString(),
+    status: response.status,
+    rawText
+  });
 
   if (!response.ok) {
     console.error('AT Error:', response.status, rawText);
@@ -203,7 +210,7 @@ app.post('/make-call', async (req, res) => {
       callData: result
     });
   } catch (error) {
-    console.log('Kuskuren kira:', error);
+    console.error('Kuskuren kira:', error);
     res.status(500).json({
       success: false,
       message: error.message || "An samu kuskure wajen fara kiran Africa's Talking."
@@ -219,4 +226,3 @@ const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
