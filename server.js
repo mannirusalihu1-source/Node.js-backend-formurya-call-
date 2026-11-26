@@ -39,7 +39,9 @@ async function placeAfricaTalkingCall(toNumber) {
     throw new Error("Babu lambar waya mai inganci.");
   }
 
-  const normalizedFrom = normalizePhoneE164(atCallerId);
+  
+  const effectiveCallerId = atCallerId || '+2347013833786';
+  const normalizedFrom = normalizePhoneE164(effectiveCallerId);
   if (!normalizedFrom) {
     throw new Error("Ba a saita AT_CALLER_ID a Render ba.");
   }
