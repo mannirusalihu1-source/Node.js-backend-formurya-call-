@@ -15,10 +15,10 @@ const wss = new Server({ server });
 let users = {}; // Ajiye mai amfani da WebSocket dinsa
 let wallets = { "07060838340": 100 }; // Ajiyar kudin wallet
 
-// Hadin Africa's Talking daga Environment
-const atUsername = process.env.AT_USERNAME;
-const atApiKey = process.env.AT_API_KEY;
-const atCallerId = process.env.AT_CALLER_ID;
+const atUsername = (process.env.AT_USERNAME || '').trim();
+const atApiKey = (process.env.AT_API_KEY || '').trim();
+const atCallerId = (process.env.AT_CALLER_ID || '').trim();
+
 
 function normalizePhoneE164(num) {
   const clean = String(num || '').trim().replace(/\s+/g, '');
