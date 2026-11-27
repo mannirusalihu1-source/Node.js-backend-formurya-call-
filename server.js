@@ -67,9 +67,12 @@ async function placeAfricaTalkingCall(toNumber) {
     body: params.toString()
   });
 
-  const rawText = await response.text();
+    const rawText = await response.text();
   console.log('AT DEBUG:', {
     endpoint,
+    username: atUsername,
+    apiKeyLen: atApiKey.length,
+    apiKeyStartEnd: atApiKey ? `${atApiKey.slice(0, 6)}...${atApiKey.slice(-4)}` : 'EMPTY',
     params: params.toString(),
     status: response.status,
     rawText
